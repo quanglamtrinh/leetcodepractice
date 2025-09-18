@@ -205,59 +205,65 @@
   margin-bottom: 1.25rem;
 }
 
-.form-field label {
-  display: block;
+/* Compatibility styles for new form components */
+.form-field .text-input,
+.form-field .text-area,
+.form-field .dropdown,
+.form-field .searchable-dropdown {
+  width: 100%;
+}
+
+/* Override form component styles to match the modal design */
+.form-field .input-label,
+.form-field .textarea-label,
+.form-field .dropdown-label {
   font-weight: 600;
-  margin-bottom: 0.5rem;
   color: #1e293b;
   font-size: 0.9rem;
   letter-spacing: 0.025em;
 }
 
-.form-field input,
-.form-field textarea,
-.form-field select {
-  width: 100%;
-  padding: 0.75rem;
+.form-field .input-field,
+.form-field .textarea-field,
+.form-field .dropdown-select,
+.form-field .dropdown-input {
   border: 2px solid #e2e8f0;
   border-radius: 6px;
   font-size: 0.95rem;
-  transition: all 0.2s ease;
-  box-sizing: border-box;
   background-color: #ffffff;
   color: #1e293b;
 }
 
-.form-field input:focus,
-.form-field textarea:focus,
-.form-field select:focus {
-  outline: none;
+.form-field .input-field:focus,
+.form-field .textarea-field:focus,
+.form-field .dropdown-select:focus,
+.form-field .dropdown-input:focus,
+.form-field .dropdown-input-wrapper:focus-within {
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   background-color: #fefefe;
 }
 
-.form-field input:hover:not(:focus),
-.form-field textarea:hover:not(:focus),
-.form-field select:hover:not(:focus) {
+.form-field .input-field:hover:not(:focus),
+.form-field .textarea-field:hover:not(:focus),
+.form-field .dropdown-select:hover:not(:focus) {
   border-color: #cbd5e1;
 }
 
-.form-field input.error,
-.form-field textarea.error,
-.form-field select.error {
+.form-field .input-field.error,
+.form-field .textarea-field.error,
+.form-field .dropdown-select.error,
+.form-field .text-input.error .input-field,
+.form-field .text-area.error .textarea-field,
+.form-field .dropdown.error .dropdown-select,
+.form-field .searchable-dropdown.error .dropdown-input-wrapper {
   border-color: #ef4444;
   background-color: #fef2f2;
 }
 
-.form-field input.error:focus,
-.form-field textarea.error:focus,
-.form-field select.error:focus {
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
-  border-color: #ef4444;
-}
-
-.field-error {
+.form-field .input-error,
+.form-field .textarea-error,
+.form-field .dropdown-error {
   display: flex;
   align-items: center;
   color: #ef4444;
@@ -266,30 +272,17 @@
   font-weight: 500;
 }
 
-.field-error::before {
+.form-field .input-error::before,
+.form-field .textarea-error::before,
+.form-field .dropdown-error::before {
   content: '⚠';
   margin-right: 0.5rem;
   font-size: 1rem;
 }
 
-.form-field textarea {
-  resize: vertical;
-  min-height: 80px;
-  line-height: 1.4;
-}
-
-.form-field select {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%233b82f6' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 1rem center;
-  background-repeat: no-repeat;
-  background-size: 1.25em 1.25em;
-  padding-right: 3rem;
-  appearance: none;
-  cursor: pointer;
-}
-
-.form-field input::placeholder,
-.form-field textarea::placeholder {
+.form-field .input-field::placeholder,
+.form-field .textarea-field::placeholder,
+.form-field .dropdown-input::placeholder {
   color: #94a3b8;
   font-style: italic;
 }

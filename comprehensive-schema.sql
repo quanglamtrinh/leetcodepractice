@@ -1,53 +1,40 @@
--- LeetCode Problem Review Database - PostgreSQL
+-- Comprehensive LeetCode Practice Database Schema
+-- Based on the database-upgrade-ui-form design document
+-- This schema supports patterns, variants, techniques, concepts, goals, and advanced review tracking
 
--- Drop existing tables if they exist (in reverse dependency order)
+-- Drop existing tables if they exist (for clean restart)
+DROP TABLE IF EXISTS problem_tags CASCADE;
 DROP TABLE IF EXISTS mistakes CASCADE;
 DROP TABLE IF EXISTS review_attempts CASCADE;
-DROP TABLE IF EXISTS review_history CASCADE;
 DROP TABLE IF EXISTS review_patterns CASCADE;
-DROP TABLE IF EXISTS problem_tags CASCADE;
-DROP TABLE IF EXISTS template_variants CASCADE;
+DROP TABLE IF EXISTS review_history CASCADE;
 DROP TABLE IF EXISTS variants CASCADE;
-DROP TABLE IF EXISTS problems CASCADE;
 DROP TABLE IF EXISTS patterns CASCADE;
+DROP TABLE IF EXISTS template_variants CASCADE;
 DROP TABLE IF EXISTS template_basics CASCADE;
-DROP TABLE IF EXISTS concepts CASCADE;
-DROP TABLE IF EXISTS techniques CASCADE;
 DROP TABLE IF EXISTS goals CASCADE;
+DROP TABLE IF EXISTS techniques CASCADE;
+DROP TABLE IF EXISTS concepts CASCADE;
+DROP TABLE IF EXISTS problems CASCADE;
+
+-- Drop existing ENUM types if they exist
+DROP TYPE IF EXISTS difficulty_level CASCADE;
+DROP TYPE IF EXISTS review_result CASCADE;
+DROP TYPE IF EXISTS mistake_type CASCADE;
 
 -- Create ENUM types
 CREATE TYPE difficulty_level AS ENUM ('easy', 'medium', 'hard');
 CREATE TYPE review_result AS ENUM ('remembered', 'forgot');
 CREATE TYPE mistake_type AS ENUM (
-    'logic_error', 
-    'syntax_error', 
-    'edge_case', 
-    'time_complexity',
-    'space_complexity', 
-    'algorithm_choice', 
-    'implementation_detail',
-    'off_by_one',
-    'boundary_condition',
-    'data_structure_choice',
-    'optimization',
-    'other'
+    'logic_error', 'syntax_error', 'edge_case', 'time_complexity',
+    'space_complexity', 'algorithm_choice', 'implementation_detail',
+    'off_by_one', 'boundary_condition', 'data_structure_choice',
+    'optimization', 'other'
 );
 
--- 1. Core Reference Tables
-CREATE TABLE goals (
-    id BIGSERIAL PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Core Reference Tables
 
-CREATE TABLE techniques (
-    id BIGSERIAL PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
+-- Concepts table
 CREATE TABLE concepts (
     id BIGSERIAL PRIMARY KEY,
     concept_id VARCHAR(50) UNIQUE NOT NULL, -- For easy reference like 'two-pointers'
@@ -55,6 +42,25 @@ CREATE TABLE concepts (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Techniques table
+CREATE TABLE techniques (
+    id BIGSERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Goals table
+CREATE TABLE goals (
+    id BIGSERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Template System
+
+-- Template basics table
 CREATE TABLE template_basics (
     id BIGSERIAL PRIMARY KEY,
     description TEXT NOT NULL,
@@ -62,6 +68,17 @@ CREATE TABLE template_basics (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Template variants table
+CREATE TABLE template_variants (
+    id BIGSERIAL PRIMARY KEY,
+    description TEXT NOT NULL,
+    template_code TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Pattern and Variant System
+
+-- Patterns table
 CREATE TABLE patterns (
     id BIGSERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -71,23 +88,7 @@ CREATE TABLE patterns (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Problems and Variants
-CREATE TABLE problems (
-    id BIGSERIAL PRIMARY KEY,
-    problem_id BIGINT UNIQUE NOT NULL, -- LeetCode problem number
-    title VARCHAR(255) NOT NULL,
-    concept VARCHAR(100),
-    difficulty difficulty_level NOT NULL,
-    acceptance_rate DECIMAL(5,2), -- Store as percentage (e.g., 45.67)
-    popularity BIGINT,
-    solved BOOLEAN DEFAULT FALSE,
-    notes TEXT,
-    leetcode_link TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    solution BIGINT -- This seems to reference something, but unclear from diagram
-);
-
+-- Variants table
 CREATE TABLE variants (
     id BIGSERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -97,18 +98,30 @@ CREATE TABLE variants (
     technique_id BIGINT REFERENCES techniques(id),
     goal_id BIGINT REFERENCES goals(id),
     concept_id BIGINT REFERENCES concepts(id),
-    template_pattern_id BIGINT, -- This might reference patterns or template_variants
+    template_pattern_id BIGINT, -- References patterns or template_variants
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE template_variants (
+-- Enhanced Problems Table
+
+-- Problems table (enhanced version)
+CREATE TABLE problems (
     id BIGSERIAL PRIMARY KEY,
-    description TEXT NOT NULL,
-    template_code TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    problem_id BIGINT UNIQUE NOT NULL, -- LeetCode problem number
+    title VARCHAR(255) NOT NULL,
+    concept VARCHAR(100),
+    difficulty difficulty_level NOT NULL,
+    acceptance_rate DECIMAL(5,2),
+    popularity BIGINT,
+    solved BOOLEAN DEFAULT FALSE,
+    notes TEXT,
+    leetcode_link TEXT,
+    solution BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Many-to-Many Relationships
+-- Problem tags (flexible many-to-many associations)
 CREATE TABLE problem_tags (
     id BIGSERIAL PRIMARY KEY,
     problem_id BIGINT REFERENCES problems(id) ON DELETE CASCADE,
@@ -118,8 +131,7 @@ CREATE TABLE problem_tags (
     technique_id BIGINT REFERENCES techniques(id) ON DELETE CASCADE,
     concept_id BIGINT REFERENCES concepts(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Ensure at least one tag type is specified
+    -- Ensure at least two associations per tag
     CHECK (
         (problem_id IS NOT NULL)::int + 
         (variant_id IS NOT NULL)::int + 
@@ -130,7 +142,9 @@ CREATE TABLE problem_tags (
     )
 );
 
--- 4. Review System Tables
+-- Review and Tracking System
+
+-- Review history table
 CREATE TABLE review_history (
     id BIGSERIAL PRIMARY KEY,
     problem_id BIGINT NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
@@ -143,22 +157,28 @@ CREATE TABLE review_history (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Review attempts table (for detailed tracking)
 CREATE TABLE review_attempts (
     id BIGSERIAL PRIMARY KEY,
     problem_id BIGINT NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
-    review_attempt_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    review_result review_result NOT NULL,
-    new_column INTEGER, -- Unclear from diagram what this represents
+    attempt_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    success BOOLEAN NOT NULL,
+    time_spent_minutes INTEGER,
+    notes TEXT,
+    difficulty_rating INTEGER CHECK (difficulty_rating BETWEEN 1 AND 5),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Review patterns table (spaced repetition patterns)
 CREATE TABLE review_patterns (
     id BIGSERIAL PRIMARY KEY,
     difficulty difficulty_level NOT NULL,
-    pattern TEXT NOT NULL, -- Could be JSON for complex patterns
+    pattern INTEGER[] NOT NULL,
+    description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Mistakes table
 CREATE TABLE mistakes (
     id BIGSERIAL PRIMARY KEY,
     problem_id BIGINT NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
@@ -166,25 +186,115 @@ CREATE TABLE mistakes (
     mistake_type mistake_type NOT NULL DEFAULT 'other',
     code_snippet TEXT,
     correction TEXT,
-    review_session_id BIGINT, -- Reference to review_history or review_attempts
+    review_session_id BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Indexes for Performance
+-- Create indexes for better performance
 CREATE INDEX idx_problems_difficulty ON problems(difficulty);
 CREATE INDEX idx_problems_solved ON problems(solved);
 CREATE INDEX idx_problems_problem_id ON problems(problem_id);
-CREATE INDEX idx_review_history_problem ON review_history(problem_id);
-CREATE INDEX idx_review_history_next_date ON review_history(next_review_date);
-CREATE INDEX idx_variants_pattern ON variants(pattern_id);
-CREATE INDEX idx_problem_tags_problem ON problem_tags(problem_id);
-CREATE INDEX idx_next_review_date ON review_history(next_review_date);
-CREATE INDEX idx_problem_review_date ON review_history(problem_id, review_date);
-CREATE INDEX idx_problem_attempt_date ON review_attempts(problem_id, review_attempt_date);
-CREATE INDEX idx_mistake_type ON mistakes(mistake_type);
-CREATE INDEX idx_problem_mistakes ON mistakes(problem_id);
+CREATE INDEX idx_review_history_problem_id ON review_history(problem_id);
+CREATE INDEX idx_review_history_review_date ON review_history(review_date);
+CREATE INDEX idx_review_history_next_review_date ON review_history(next_review_date);
+CREATE INDEX idx_review_attempts_problem_id ON review_attempts(problem_id);
+CREATE INDEX idx_review_attempts_attempt_date ON review_attempts(attempt_date);
+CREATE INDEX idx_mistakes_problem_id ON mistakes(problem_id);
+CREATE INDEX idx_mistakes_mistake_type ON mistakes(mistake_type);
+CREATE INDEX idx_problem_tags_problem_id ON problem_tags(problem_id);
+CREATE INDEX idx_problem_tags_pattern_id ON problem_tags(pattern_id);
+CREATE INDEX idx_problem_tags_variant_id ON problem_tags(variant_id);
+CREATE INDEX idx_patterns_concept_id ON patterns(concept_id);
+CREATE INDEX idx_variants_pattern_id ON variants(pattern_id);
+CREATE INDEX idx_variants_technique_id ON variants(technique_id);
+CREATE INDEX idx_variants_goal_id ON variants(goal_id);
 
--- 6. Triggers for updated_at
+-- Insert default review patterns
+INSERT INTO review_patterns (difficulty, pattern, description) VALUES 
+('easy', ARRAY[0, 1, 3, 7, 14, 30], 'Standard spaced repetition for easy problems'),
+('medium', ARRAY[0, 1, 2, 4, 8, 16, 32], 'Accelerated pattern for medium problems'),
+('hard', ARRAY[0, 1, 2, 4, 6, 10, 20, 40], 'Extended pattern for hard problems');
+
+-- Insert some default concepts
+INSERT INTO concepts (concept_id, name) VALUES 
+('two-pointers', 'Two Pointers'),
+('sliding-window', 'Sliding Window'),
+('binary-search', 'Binary Search'),
+('dynamic-programming', 'Dynamic Programming'),
+('backtracking', 'Backtracking'),
+('graph-traversal', 'Graph Traversal'),
+('tree-traversal', 'Tree Traversal'),
+('greedy', 'Greedy Algorithm'),
+('divide-conquer', 'Divide and Conquer'),
+('hash-table', 'Hash Table');
+
+-- Insert some default techniques
+INSERT INTO techniques (name, description) VALUES 
+('Fast and Slow Pointers', 'Use two pointers moving at different speeds'),
+('Left and Right Pointers', 'Use pointers from both ends moving towards center'),
+('Sliding Window Fixed Size', 'Maintain a window of fixed size'),
+('Sliding Window Variable Size', 'Expand and contract window based on conditions'),
+('Binary Search on Answer', 'Use binary search to find optimal value'),
+('Memoization', 'Cache results of expensive function calls'),
+('Tabulation', 'Build up solution using iterative approach'),
+('DFS Recursive', 'Depth-first search using recursion'),
+('BFS Iterative', 'Breadth-first search using queue'),
+('Backtrack with Pruning', 'Backtracking with early termination');
+
+-- Insert some default goals
+INSERT INTO goals (name, description) VALUES 
+('Find Target', 'Locate a specific element or value'),
+('Optimize Path', 'Find shortest or optimal path'),
+('Count Occurrences', 'Count number of valid solutions'),
+('Minimize Cost', 'Find solution with minimum cost'),
+('Maximize Profit', 'Find solution with maximum benefit'),
+('Detect Cycle', 'Identify cycles in data structure'),
+('Validate Structure', 'Check if structure meets criteria'),
+('Transform Data', 'Convert data from one form to another'),
+('Partition Elements', 'Divide elements based on criteria'),
+('Generate Combinations', 'Create all valid combinations');
+
+-- Insert some default template basics
+INSERT INTO template_basics (description, template_code) VALUES 
+('Two Pointers Template', 
+'def two_pointers(arr):
+    left, right = 0, len(arr) - 1
+    while left < right:
+        # Process current pair
+        if condition:
+            # Move pointers based on condition
+            left += 1
+        else:
+            right -= 1
+    return result'),
+
+('Sliding Window Template',
+'def sliding_window(arr, k):
+    window_sum = sum(arr[:k])
+    max_sum = window_sum
+    
+    for i in range(k, len(arr)):
+        window_sum = window_sum - arr[i-k] + arr[i]
+        max_sum = max(max_sum, window_sum)
+    
+    return max_sum'),
+
+('Binary Search Template',
+'def binary_search(arr, target):
+    left, right = 0, len(arr) - 1
+    
+    while left <= right:
+        mid = (left + right) // 2
+        if arr[mid] == target:
+            return mid
+        elif arr[mid] < target:
+            left = mid + 1
+        else:
+            right = mid - 1
+    
+    return -1');
+
+-- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -193,91 +303,40 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+-- Create triggers to automatically update updated_at
 CREATE TRIGGER update_problems_updated_at 
     BEFORE UPDATE ON problems
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- 7. Views for Common Queries
-
--- View for due problems today
-CREATE VIEW due_problems_today AS
-SELECT 
-    p.id,
-    p.problem_id,
-    p.title,
-    p.difficulty,
-    rh.next_review_date,
-    rh.interval_days,
-    CURRENT_DATE - rh.next_review_date as days_overdue,
-    rh.result as last_result
-FROM problems p
-JOIN review_history rh ON p.id = rh.problem_id
-WHERE rh.next_review_date <= CURRENT_DATE
-AND rh.id = (
-    SELECT MAX(id) 
-    FROM review_history rh2 
-    WHERE rh2.problem_id = p.id
-)
-ORDER BY rh.next_review_date ASC, p.difficulty DESC;
-
--- View for problem statistics
-CREATE VIEW problem_stats AS
-SELECT 
-    p.id,
-    p.title,
-    p.difficulty,
-    COUNT(rh.id) as total_reviews,
-    COUNT(CASE WHEN rh.result = 'remembered' THEN 1 END) as remembered_count,
-    COUNT(CASE WHEN rh.result = 'forgot' THEN 1 END) as forgot_count,
-    ROUND(
-        COUNT(CASE WHEN rh.result = 'remembered' THEN 1 END) * 100.0 / 
-        NULLIF(COUNT(rh.id), 0), 2
-    ) as success_rate,
-    MAX(rh.review_date) as last_reviewed,
-    AVG(rh.time_spent_minutes) as avg_time_spent
-FROM problems p
-LEFT JOIN review_history rh ON p.id = rh.problem_id
-GROUP BY p.id, p.title, p.difficulty;
-
--- View for mistake analysis
-CREATE VIEW mistake_analysis AS
-SELECT 
-    p.title,
-    p.difficulty,
-    m.mistake_type,
-    COUNT(*) as frequency,
-    STRING_AGG(DISTINCT m.description, '; ') as common_descriptions
-FROM mistakes m
-JOIN problems p ON m.problem_id = p.id
-GROUP BY p.title, p.difficulty, m.mistake_type
-ORDER BY frequency DESC;
-
--- 8. Functions for Spaced Repetition
-
--- Function to calculate next review interval
-CREATE OR REPLACE FUNCTION calculate_next_interval(
-    current_interval INTEGER,
-    result review_result,
-    problem_difficulty difficulty_level DEFAULT 'medium'
-) RETURNS INTEGER AS $$
-DECLARE
-    base_multiplier DECIMAL := 2.0;
-    difficulty_factor DECIMAL;
+-- Function to get problems due for review today
+CREATE OR REPLACE FUNCTION get_due_problems_today()
+RETURNS TABLE (
+    id BIGINT,
+    problem_id BIGINT,
+    title VARCHAR(255),
+    difficulty difficulty_level,
+    next_review_date DATE,
+    days_overdue INTEGER
+) AS $$
 BEGIN
-    -- Adjust base multiplier based on difficulty
-    difficulty_factor := CASE problem_difficulty
-        WHEN 'easy' THEN 1.5
-        WHEN 'medium' THEN 2.0
-        WHEN 'hard' THEN 2.5
-    END;
-    
-    IF result = 'forgot' THEN
-        -- Reset to shorter interval when forgotten
-        RETURN GREATEST(1, FLOOR(current_interval * 0.3));
-    ELSE
-        -- Increase interval when remembered
-        RETURN FLOOR(current_interval * difficulty_factor);
-    END IF;
+    RETURN QUERY
+    SELECT 
+        p.id,
+        p.problem_id,
+        p.title,
+        p.difficulty,
+        rh.next_review_date,
+        (CURRENT_DATE - rh.next_review_date)::INTEGER as days_overdue
+    FROM problems p
+    INNER JOIN (
+        SELECT DISTINCT ON (problem_id) 
+            problem_id, 
+            next_review_date
+        FROM review_history 
+        ORDER BY problem_id, created_at DESC
+    ) rh ON p.id = rh.problem_id
+    WHERE rh.next_review_date <= CURRENT_DATE
+    ORDER BY rh.next_review_date ASC, p.difficulty DESC;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -285,151 +344,173 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION add_review_session(
     p_problem_id BIGINT,
     p_result review_result,
-    p_time_spent INTEGER DEFAULT NULL,
-    p_notes TEXT DEFAULT NULL
-) RETURNS BIGINT AS $$
+    p_notes TEXT DEFAULT NULL,
+    p_time_spent INTEGER DEFAULT NULL
+)
+RETURNS VOID AS $$
 DECLARE
+    current_pattern INTEGER[];
+    next_interval INTEGER;
+    problem_difficulty difficulty_level;
     last_interval INTEGER;
-    new_interval INTEGER;
-    problem_diff difficulty_level;
-    initial_interval INTEGER;
-    review_id BIGINT;
 BEGIN
     -- Get problem difficulty
-    SELECT difficulty INTO problem_diff FROM problems WHERE id = p_problem_id;
+    SELECT difficulty INTO problem_difficulty
+    FROM problems WHERE id = p_problem_id;
     
-    -- Get initial interval from review_patterns
-    SELECT 1 INTO initial_interval; -- Default to 1 day
+    -- Get the review pattern for this difficulty
+    SELECT pattern INTO current_pattern
+    FROM review_patterns 
+    WHERE difficulty = problem_difficulty
+    LIMIT 1;
     
-    -- Get last interval, default to initial interval based on difficulty
-    SELECT COALESCE(
-        (SELECT interval_days FROM review_history 
-         WHERE problem_id = p_problem_id 
-         ORDER BY review_date DESC LIMIT 1),
-        initial_interval
-    ) INTO last_interval;
+    -- Get last interval from review history
+    SELECT interval_days INTO last_interval
+    FROM review_history 
+    WHERE problem_id = p_problem_id 
+    ORDER BY created_at DESC 
+    LIMIT 1;
     
-    -- Calculate new interval
-    new_interval := calculate_next_interval(last_interval, p_result, problem_diff);
+    -- Calculate next interval based on result
+    IF p_result = 'remembered' THEN
+        -- Find next interval in pattern or double the last one
+        IF last_interval IS NULL THEN
+            next_interval := current_pattern[1];
+        ELSE
+            -- Find current position in pattern and move to next
+            FOR i IN 1..array_length(current_pattern, 1) LOOP
+                IF current_pattern[i] = last_interval THEN
+                    IF i < array_length(current_pattern, 1) THEN
+                        next_interval := current_pattern[i + 1];
+                    ELSE
+                        next_interval := last_interval * 2;
+                    END IF;
+                    EXIT;
+                END IF;
+            END LOOP;
+            
+            -- If not found in pattern, double the interval
+            IF next_interval IS NULL THEN
+                next_interval := last_interval * 2;
+            END IF;
+        END IF;
+    ELSE
+        -- Reset to beginning of pattern
+        next_interval := current_pattern[1];
+    END IF;
     
-    -- Insert review session
+    -- Insert review history record
     INSERT INTO review_history (
         problem_id, 
+        review_date, 
         result, 
         interval_days, 
         next_review_date,
-        time_spent_minutes, 
-        review_notes
+        review_notes,
+        time_spent_minutes
     ) VALUES (
         p_problem_id,
+        CURRENT_DATE,
         p_result,
-        new_interval,
-        CURRENT_DATE + new_interval,
+        next_interval,
+        CURRENT_DATE + INTERVAL '1 day' * next_interval,
+        p_notes,
+        p_time_spent
+    );
+    
+    -- Also add to review attempts
+    INSERT INTO review_attempts (
+        problem_id,
+        success,
+        time_spent_minutes,
+        notes
+    ) VALUES (
+        p_problem_id,
+        p_result = 'remembered',
         p_time_spent,
         p_notes
-    ) RETURNING id INTO review_id;
-    
-    -- Also record in review_attempts
-    INSERT INTO review_attempts (problem_id, review_result) 
-    VALUES (p_problem_id, p_result);
-    
-    RETURN review_id;
+    );
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to get all due problems for today
-CREATE OR REPLACE FUNCTION get_due_problems_today()
-RETURNS TABLE (
-    problem_id BIGINT,
-    leetcode_id BIGINT,
-    title TEXT,
-    difficulty difficulty_level,
-    next_review_date DATE,
-    days_overdue INTEGER,
-    last_result review_result,
-    success_streak INTEGER,
-    total_reviews BIGINT,
-    solution BIGINT
-) AS $$
+-- Function to process review session with mistake tracking
+CREATE OR REPLACE FUNCTION process_review_session(
+    p_problem_id BIGINT,
+    p_result review_result,
+    p_notes TEXT DEFAULT NULL,
+    p_time_spent INTEGER DEFAULT NULL,
+    p_mistakes TEXT[] DEFAULT NULL,
+    p_mistake_types mistake_type[] DEFAULT NULL
+)
+RETURNS VOID AS $$
+DECLARE
+    mistake_text TEXT;
+    mistake_type_val mistake_type;
+    i INTEGER;
 BEGIN
-    RETURN QUERY
-    WITH latest_reviews AS (
-        SELECT DISTINCT ON (rh.problem_id)
-            rh.problem_id,
-            rh.next_review_date,
-            rh.result as last_result,
-            rh.review_date
-        FROM review_history rh
-        ORDER BY rh.problem_id, rh.review_date DESC
-    ),
-    review_stats AS (
-        SELECT 
-            rh.problem_id,
-            COUNT(*) as total_reviews,
-            COUNT(*) FILTER (WHERE rh.result = 'remembered' AND rh.review_date >= (
-                SELECT MAX(review_date) 
-                FROM review_history rh2 
-                WHERE rh2.problem_id = rh.problem_id AND rh2.result = 'forgot'
-            )) as success_streak
-        FROM review_history rh
-        GROUP BY rh.problem_id
-    )
-    SELECT 
-        p.id as problem_id,
-        p.problem_id as leetcode_id,
-        p.title,
-        p.difficulty,
-        lr.next_review_date,
-        (CURRENT_DATE - lr.next_review_date)::INTEGER as days_overdue,
-        lr.last_result,
-        COALESCE(rs.success_streak, 0)::INTEGER as success_streak,
-        COALESCE(rs.total_reviews, 0) as total_reviews,
-        p.solution
-    FROM problems p
-    LEFT JOIN latest_reviews lr ON p.id = lr.problem_id
-    LEFT JOIN review_stats rs ON p.id = rs.problem_id
-    WHERE (lr.next_review_date IS NULL AND p.solved = true) -- Never reviewed but solved
-       OR lr.next_review_date <= CURRENT_DATE -- Due for review
-    ORDER BY 
-        CASE WHEN lr.next_review_date IS NULL THEN 0 ELSE 1 END, -- New problems first
-        lr.next_review_date ASC,
-        p.difficulty DESC;
+    -- Add the review session
+    PERFORM add_review_session(p_problem_id, p_result, p_notes, p_time_spent);
+    
+    -- Add mistakes if provided
+    IF p_mistakes IS NOT NULL AND array_length(p_mistakes, 1) > 0 THEN
+        FOR i IN 1..array_length(p_mistakes, 1) LOOP
+            mistake_text := p_mistakes[i];
+            mistake_type_val := COALESCE(p_mistake_types[i], 'other');
+            
+            INSERT INTO mistakes (
+                problem_id,
+                description,
+                mistake_type
+            ) VALUES (
+                p_problem_id,
+                mistake_text,
+                mistake_type_val
+            );
+        END LOOP;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
--- 9. Sample Data
-INSERT INTO goals (name, description) VALUES 
-('Master Arrays', 'Become proficient with array manipulation problems'),
-('Dynamic Programming', 'Master DP concepts and patterns'),
-('Graph Algorithms', 'Learn BFS, DFS, and advanced graph algorithms'),
-('System Design', 'Prepare for system design interviews');
+-- Create views for easier data access
 
-INSERT INTO techniques (name, description) VALUES 
-('Two Pointers', 'Use two pointers to solve problems efficiently'),
-('Sliding Window', 'Maintain a window of elements'),
-('Binary Search', 'Divide and conquer search technique'),
-('Dynamic Programming', 'Break down problems into subproblems');
+-- View for problems due today
+CREATE OR REPLACE VIEW due_problems_today AS
+SELECT * FROM get_due_problems_today();
 
-INSERT INTO concepts (concept_id, name) VALUES 
-('two-pointers', 'Two Pointers Technique'),
-('sliding-window', 'Sliding Window'),
-('binary-search', 'Binary Search'),
-('dp', 'Dynamic Programming'),
-('graph-traversal', 'Graph Traversal');
+-- View for problem statistics
+CREATE OR REPLACE VIEW problem_stats AS
+SELECT 
+    p.id,
+    p.problem_id,
+    p.title,
+    p.difficulty,
+    COUNT(rh.id) as total_reviews,
+    COUNT(CASE WHEN rh.result = 'remembered' THEN 1 END) as successful_reviews,
+    COUNT(CASE WHEN rh.result = 'forgot' THEN 1 END) as failed_reviews,
+    CASE 
+        WHEN COUNT(rh.id) > 0 THEN 
+            ROUND((COUNT(CASE WHEN rh.result = 'remembered' THEN 1 END) * 100.0 / COUNT(rh.id)), 2)
+        ELSE 0
+    END as success_rate,
+    MAX(rh.review_date) as last_reviewed,
+    MIN(rh.next_review_date) as next_review
+FROM problems p
+LEFT JOIN review_history rh ON p.id = rh.problem_id
+GROUP BY p.id, p.problem_id, p.title, p.difficulty;
 
-INSERT INTO template_basics (description, template_code) VALUES 
-('Two Pointers Template', 'def two_pointers(arr):\n    left, right = 0, len(arr) - 1\n    while left < right:\n        # process\n        left += 1\n        right -= 1'),
-('Binary Search Template', 'def binary_search(arr, target):\n    left, right = 0, len(arr) - 1\n    while left <= right:\n        mid = (left + right) // 2\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            left = mid + 1\n        else:\n            right = mid - 1\n    return -1');
+-- View for mistake analysis
+CREATE OR REPLACE VIEW mistake_analysis AS
+SELECT 
+    p.title,
+    p.difficulty,
+    m.mistake_type,
+    COUNT(*) as mistake_count,
+    STRING_AGG(m.description, '; ') as mistake_descriptions
+FROM problems p
+INNER JOIN mistakes m ON p.id = m.problem_id
+GROUP BY p.id, p.title, p.difficulty, m.mistake_type
+ORDER BY mistake_count DESC;
 
--- Sample problems
-INSERT INTO problems (problem_id, title, difficulty, acceptance_rate, solved) VALUES 
-(1, 'Two Sum', 'easy', 49.5, true),
-(15, '3Sum', 'medium', 32.1, false),
-(200, 'Number of Islands', 'medium', 56.8, true),
-(70, 'Climbing Stairs', 'easy', 51.2, true);
-
-COMMENT ON TABLE problems IS 'LeetCode problems with metadata';
-COMMENT ON TABLE review_history IS 'Tracks review sessions with spaced repetition intervals';
-COMMENT ON TABLE mistakes IS 'Records mistakes made during problem solving';
-COMMENT ON FUNCTION add_review_session IS 'Adds a new review session and calculates next review interval';
-COMMENT ON VIEW due_problems_today IS 'Shows all problems due for review today';
+-- Grant permissions (adjust as needed for your setup)
+-- GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO your_user;
+-- GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO your_user;

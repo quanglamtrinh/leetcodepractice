@@ -3,14 +3,20 @@
 - [x] 1. Apply the new database schema
 
 
+
+
+
   - Execute the comprehensive schema.sql to create all tables, ENUM types, and functions
   - Verify all tables are created correctly with proper constraints and indexes
   - Test the custom functions (get_due_problems_today, add_review_session, process_review_session)
   - Validate that views (due_problems_today, problem_stats, mistake_analysis) work correctly
   - _Requirements: 1.1, 2.1, 5.1, 5.3_
 
-- [ ] 2. Create API endpoints for core reference data
-- [x] 2.1 Implement endpoints for concepts, techniques, and goals
+- [x] 2. Create API endpoints for core reference data
+
+
+- [ ] 2.1 Implement endpoints for concepts, techniques, and goals
+
 
 
 
@@ -29,9 +35,12 @@
 
 
 
+
+
   - _Requirements: 3.2, 4.1, 4.2_
 
-- [x] 2.2 Implement pattern management endpoints
+- [ ] 2.2 Implement pattern management endpoints
+
 
 
 
@@ -41,11 +50,14 @@
   - Create GET /api/patterns endpoint with joins to concepts and template_basics
   - Create POST /api/patterns endpoint accepting name, description, template_id, concept_id
   - Create GET /api/patterns/:id/variants endpoint showing associated variants
+
+
   - Create PUT /api/patterns/:id endpoint for updating pattern information
   - Add validation for required fields and foreign key references
   - _Requirements: 1.1, 1.2, 2.3_
 
-- [x] 2.3 Implement variant management endpoints
+- [ ] 2.3 Implement variant management endpoints
+
 
   - Create POST /api/variants endpoint accepting name, use_when, notes, pattern_id, technique_id, goal_id, concept_id, template_pattern_id
   - Create GET /api/variants endpoint with filtering by pattern_id
@@ -59,7 +71,8 @@
 
 
 
-- [x] 3.1 Build the main AddEntryForm component structure
+- [ ] 3.1 Build the main AddEntryForm component structure
+
 
 
 
@@ -72,7 +85,8 @@
   - _Requirements: 3.1, 3.2_
 
 
-- [x] 3.2 Implement entry type selection and conditional fields
+- [ ] 3.2 Implement entry type selection and conditional fields
+
 
 
 
@@ -82,12 +96,16 @@
   - Implement conditional field rendering based on entry type selection
   - Show pattern-specific fields (name, description, template_id, concept_id) for patterns
 
+
   - Show variant-specific fields (use_when, notes, pattern_id, technique_id, goal_id, template_pattern_id) for variants
   - Add form field validation that adapts to entry type
   - _Requirements: 3.1, 3.4_
 
 
 - [ ] 3.3 Create specialized form input components
+
+
+
   - Build searchable dropdown component for concepts using concept_id and name
   - Build dropdown component for goals with name and description display
 
@@ -96,9 +114,13 @@
 
 
   - Build dropdown component for template_basics selection
+
+
   - Build dropdown component for pattern selection (variants only)
   - Add text input and textarea components with proper validation
   - _Requirements: 3.1, 4.1, 4.2_
+
+
 
 
 

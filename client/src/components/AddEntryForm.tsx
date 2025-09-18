@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './AddEntryForm.css';
 import { api, ApiError } from '../services/api';
+import { SearchableDropdown, Dropdown, TextInput, TextArea } from './form';
+import type { DropdownOption } from './form';
 
 // Types based on the database schema
 export interface Concept {
@@ -57,11 +59,11 @@ export interface VariantFormData {
 type EntryType = 'pattern' | 'variant';
 
 interface AddEntryFormProps {
-  onSubmit: (type: EntryType, data: PatternFormData | VariantFormData) => void;
   onCancel: () => void;
+  onSuccess?: (type: EntryType, result: any) => void;
 }
 
-const AddEntryForm: React.FC<AddEntryFormProps> = ({ onSubmit, onCancel }) => {
+const AddEntryForm: React.FC<AddEntryFormProps> = ({ onCancel, onSuccess }) => {
   // Form state
   const [entryType, setEntryType] = useState<EntryType>('pattern');
   const [patternData, setPatternData] = useState<PatternFormData>({
@@ -92,9 +94,46 @@ const AddEntryForm: React.FC<AddEntryFormProps> = ({ onSubmit, onCancel }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Form validation state
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Helper functions to convert data to dropdown options
+  const conceptsToOptions = (concepts: Concept[]): DropdownOption[] => 
+    concepts.map(concept => ({
+      id: concept.id,
+      label: concept.name,
+      searchText: `${concept.concept_id} ${concept.name}`,
+    }));
+
+  const techniquesToOptions = (techniques: Technique[]): DropdownOption[] => 
+    techniques.map(technique => ({
+      id: technique.id,
+      label: technique.name,
+      description: technique.description,
+    }));
+
+  const goalsToOptions = (goals: Goal[]): DropdownOption[] => 
+    goals.map(goal => ({
+      id: goal.id,
+      label: goal.name,
+      description: goal.description,
+    }));
+
+  const templatesToOptions = (templates: TemplateBasic[]): DropdownOption[] => 
+    templates.map(template => ({
+      id: template.id,
+      label: template.description,
+      description: template.template_code.substring(0, 100) + (template.template_code.length > 100 ? '...' : ''),
+    }));
+
+  const patternsToOptions = (patterns: Pattern[]): DropdownOption[] => 
+    patterns.map(pattern => ({
+      id: pattern.id,
+      label: pattern.name,
+      description: pattern.description,
+    }));
 
   // Load reference data on component mount
   useEffect(() => {
@@ -218,13 +257,24 @@ const AddEntryForm: React.FC<AddEntryFormProps> = ({ onSubmit, onCancel }) => {
     setError(null);
     
     try {
-      const data = entryType === 'pattern' ? patternData : variantData;
-      const result = await onSubmit(entryType, data);
+      let result;
+      
+      if (entryType === 'pattern') {
+        // Submit pattern using API service
+        result = await api.patterns.create(patternData);
+        console.log('Pattern created successfully:', result);
+      } else {
+        // Submit variant using API service
+        result = await api.variants.create(variantData);
+        console.log('Variant created successfully:', result);
+      }
       
       // Handle successful submission
       handleSuccessfulSubmission(entryType, result);
       
     } catch (err) {
+      console.error('Form submission error:', err);
+      
       if (err instanceof ApiError) {
         if (err.status === 400) {
           // Handle validation errors
@@ -234,6 +284,12 @@ const AddEntryForm: React.FC<AddEntryFormProps> = ({ onSubmit, onCancel }) => {
           } else {
             setError(err.message);
           }
+        } else if (err.status === 409) {
+          // Handle conflict errors (duplicate entries)
+          setError(`${entryType === 'pattern' ? 'Pattern' : 'Variant'} with this name already exists`);
+        } else if (err.status === 0) {
+          // Network error
+          setError('Unable to connect to server. Please check your connection and try again.');
         } else {
           setError(`Failed to create ${entryType}: ${err.message}`);
         }
@@ -289,6 +345,7 @@ const AddEntryForm: React.FC<AddEntryFormProps> = ({ onSubmit, onCancel }) => {
     });
     setErrors({});
     setError(null);
+    setSuccess(null);
     setEntryType('pattern');
   };
 
@@ -296,13 +353,25 @@ const AddEntryForm: React.FC<AddEntryFormProps> = ({ onSubmit, onCancel }) => {
   const handleSuccessfulSubmission = (type: EntryType, result: any) => {
     console.log(`${type} created successfully:`, result);
     
-    // Reset form state
-    resetForm();
+    // Call success callback if provided
+    if (onSuccess) {
+      onSuccess(type, result);
+    }
+    
+    // Show success message
+    setError(null);
+    setSuccess(`${type === 'pattern' ? 'Pattern' : 'Variant'} "${result.name}" created successfully!`);
+    
+    // Reset form state after showing success
+    setTimeout(() => {
+      resetForm();
+      setSuccess(null);
+    }, 1000);
     
     // Close form after a brief delay to show success
     setTimeout(() => {
       onCancel();
-    }, 1500);
+    }, 2000);
   };
 
   if (loading) {
@@ -361,6 +430,20 @@ const AddEntryForm: React.FC<AddEntryFormProps> = ({ onSubmit, onCancel }) => {
             </div>
           )}
 
+          {/* Success Message Display */}
+          {success && (
+            <div className="form-success" style={{
+              backgroundColor: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderRadius: '6px',
+              padding: '0.75rem',
+              marginBottom: '1rem',
+              color: '#166534'
+            }}>
+              <strong>Success:</strong> {success}
+            </div>
+          )}
+
           {/* Entry Type Selection */}
           <div className="form-section">
             <label className="section-label">Entry Type</label>
@@ -395,192 +478,159 @@ const AddEntryForm: React.FC<AddEntryFormProps> = ({ onSubmit, onCancel }) => {
             <div className="pattern-fields">
               {/* Pattern Name */}
               <div className="form-field">
-                <label htmlFor="pattern-name">Pattern Name *</label>
-                <input
-                  id="pattern-name"
-                  type="text"
+                <TextInput
                   value={patternData.name}
-                  onChange={(e) => handlePatternChange('name', e.target.value)}
+                  onChange={(value) => handlePatternChange('name', value)}
+                  label="Pattern Name"
                   placeholder="e.g., Two Pointers"
-                  className={errors.name ? 'error' : ''}
+                  error={errors.name}
+                  required
+                  maxLength={100}
                 />
-                {errors.name && <span className="field-error">{errors.name}</span>}
               </div>
 
               {/* Pattern Description */}
               <div className="form-field">
-                <label htmlFor="pattern-description">Description *</label>
-                <textarea
-                  id="pattern-description"
+                <TextArea
                   value={patternData.description}
-                  onChange={(e) => handlePatternChange('description', e.target.value)}
+                  onChange={(value) => handlePatternChange('description', value)}
+                  label="Description"
                   placeholder="Describe when and how to use this pattern..."
+                  error={errors.description}
+                  required
                   rows={3}
-                  className={errors.description ? 'error' : ''}
+                  maxLength={1000}
                 />
-                {errors.description && <span className="field-error">{errors.description}</span>}
               </div>
 
               {/* Template Selection */}
               <div className="form-field">
-                <label htmlFor="pattern-template">Template (Optional)</label>
-                <select
-                  id="pattern-template"
-                  value={patternData.template_id || ''}
-                  onChange={(e) => handlePatternChange('template_id', e.target.value ? parseInt(e.target.value) : null)}
-                >
-                  <option value="">Select a template...</option>
-                  {templates.map(template => (
-                    <option key={template.id} value={template.id}>
-                      {template.description}
-                    </option>
-                  ))}
-                </select>
+                <Dropdown
+                  options={templatesToOptions(templates)}
+                  value={patternData.template_id}
+                  onChange={(value) => handlePatternChange('template_id', value)}
+                  label="Template"
+                  placeholder="Select a template..."
+                  error={errors.template_id}
+                  showDescription={true}
+                />
               </div>
 
               {/* Concept Selection */}
               <div className="form-field">
-                <label htmlFor="pattern-concept">Concept (Optional)</label>
-                <select
-                  id="pattern-concept"
-                  value={patternData.concept_id || ''}
-                  onChange={(e) => handlePatternChange('concept_id', e.target.value ? parseInt(e.target.value) : null)}
-                >
-                  <option value="">Select a concept...</option>
-                  {concepts.map(concept => (
-                    <option key={concept.id} value={concept.id}>
-                      {concept.name}
-                    </option>
-                  ))}
-                </select>
+                <SearchableDropdown
+                  options={conceptsToOptions(concepts)}
+                  value={patternData.concept_id}
+                  onChange={(value) => handlePatternChange('concept_id', value)}
+                  label="Concept"
+                  placeholder="Search and select a concept..."
+                  error={errors.concept_id}
+                />
               </div>
             </div>
           ) : (
             <div className="variant-fields">
               {/* Variant Name */}
               <div className="form-field">
-                <label htmlFor="variant-name">Variant Name *</label>
-                <input
-                  id="variant-name"
-                  type="text"
+                <TextInput
                   value={variantData.name}
-                  onChange={(e) => handleVariantChange('name', e.target.value)}
+                  onChange={(value) => handleVariantChange('name', value)}
+                  label="Variant Name"
                   placeholder="e.g., Fast and Slow Pointers"
-                  className={errors.name ? 'error' : ''}
+                  error={errors.name}
+                  required
+                  maxLength={100}
                 />
-                {errors.name && <span className="field-error">{errors.name}</span>}
               </div>
 
               {/* Use When */}
               <div className="form-field">
-                <label htmlFor="variant-use-when">Use When *</label>
-                <textarea
-                  id="variant-use-when"
+                <TextArea
                   value={variantData.use_when}
-                  onChange={(e) => handleVariantChange('use_when', e.target.value)}
+                  onChange={(value) => handleVariantChange('use_when', value)}
+                  label="Use When"
                   placeholder="Describe when to use this variant..."
+                  error={errors.use_when}
+                  required
                   rows={2}
-                  className={errors.use_when ? 'error' : ''}
+                  maxLength={500}
                 />
-                {errors.use_when && <span className="field-error">{errors.use_when}</span>}
               </div>
 
               {/* Pattern Selection */}
               <div className="form-field">
-                <label htmlFor="variant-pattern">Pattern *</label>
-                <select
-                  id="variant-pattern"
-                  value={variantData.pattern_id || ''}
-                  onChange={(e) => handleVariantChange('pattern_id', e.target.value ? parseInt(e.target.value) : null)}
-                  className={errors.pattern_id ? 'error' : ''}
-                >
-                  <option value="">Select a pattern...</option>
-                  {patterns.map(pattern => (
-                    <option key={pattern.id} value={pattern.id}>
-                      {pattern.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.pattern_id && <span className="field-error">{errors.pattern_id}</span>}
+                <Dropdown
+                  options={patternsToOptions(patterns)}
+                  value={variantData.pattern_id}
+                  onChange={(value) => handleVariantChange('pattern_id', value)}
+                  label="Pattern"
+                  placeholder="Select a pattern..."
+                  error={errors.pattern_id}
+                  required
+                  showDescription={true}
+                />
               </div>
 
               {/* Technique Selection */}
               <div className="form-field">
-                <label htmlFor="variant-technique">Technique (Optional)</label>
-                <select
-                  id="variant-technique"
-                  value={variantData.technique_id || ''}
-                  onChange={(e) => handleVariantChange('technique_id', e.target.value ? parseInt(e.target.value) : null)}
-                >
-                  <option value="">Select a technique...</option>
-                  {techniques.map(technique => (
-                    <option key={technique.id} value={technique.id}>
-                      {technique.name}
-                    </option>
-                  ))}
-                </select>
+                <Dropdown
+                  options={techniquesToOptions(techniques)}
+                  value={variantData.technique_id}
+                  onChange={(value) => handleVariantChange('technique_id', value)}
+                  label="Technique"
+                  placeholder="Select a technique..."
+                  error={errors.technique_id}
+                  showDescription={true}
+                />
               </div>
 
               {/* Goal Selection */}
               <div className="form-field">
-                <label htmlFor="variant-goal">Goal (Optional)</label>
-                <select
-                  id="variant-goal"
-                  value={variantData.goal_id || ''}
-                  onChange={(e) => handleVariantChange('goal_id', e.target.value ? parseInt(e.target.value) : null)}
-                >
-                  <option value="">Select a goal...</option>
-                  {goals.map(goal => (
-                    <option key={goal.id} value={goal.id}>
-                      {goal.name}
-                    </option>
-                  ))}
-                </select>
+                <Dropdown
+                  options={goalsToOptions(goals)}
+                  value={variantData.goal_id}
+                  onChange={(value) => handleVariantChange('goal_id', value)}
+                  label="Goal"
+                  placeholder="Select a goal..."
+                  error={errors.goal_id}
+                  showDescription={true}
+                />
               </div>
 
               {/* Concept Selection */}
               <div className="form-field">
-                <label htmlFor="variant-concept">Concept (Optional)</label>
-                <select
-                  id="variant-concept"
-                  value={variantData.concept_id || ''}
-                  onChange={(e) => handleVariantChange('concept_id', e.target.value ? parseInt(e.target.value) : null)}
-                >
-                  <option value="">Select a concept...</option>
-                  {concepts.map(concept => (
-                    <option key={concept.id} value={concept.id}>
-                      {concept.name}
-                    </option>
-                  ))}
-                </select>
+                <SearchableDropdown
+                  options={conceptsToOptions(concepts)}
+                  value={variantData.concept_id}
+                  onChange={(value) => handleVariantChange('concept_id', value)}
+                  label="Concept"
+                  placeholder="Search and select a concept..."
+                  error={errors.concept_id}
+                />
               </div>
 
               {/* Template Pattern Selection */}
               <div className="form-field">
-                <label htmlFor="variant-template-pattern">Template Pattern (Optional)</label>
-                <select
-                  id="variant-template-pattern"
-                  value={variantData.template_pattern_id || ''}
-                  onChange={(e) => handleVariantChange('template_pattern_id', e.target.value ? parseInt(e.target.value) : null)}
-                >
-                  <option value="">Select a template pattern...</option>
-                  {patterns.map(pattern => (
-                    <option key={pattern.id} value={pattern.id}>
-                      {pattern.name}
-                    </option>
-                  ))}
-                </select>
+                <Dropdown
+                  options={patternsToOptions(patterns)}
+                  value={variantData.template_pattern_id}
+                  onChange={(value) => handleVariantChange('template_pattern_id', value)}
+                  label="Template Pattern"
+                  placeholder="Select a template pattern..."
+                  error={errors.template_pattern_id}
+                  showDescription={true}
+                />
               </div>
 
               {/* Notes */}
               <div className="form-field">
-                <label htmlFor="variant-notes">Notes (Optional)</label>
-                <textarea
-                  id="variant-notes"
+                <TextArea
                   value={variantData.notes}
-                  onChange={(e) => handleVariantChange('notes', e.target.value)}
+                  onChange={(value) => handleVariantChange('notes', value)}
+                  label="Notes"
                   placeholder="Additional notes about this variant..."
                   rows={3}
+                  maxLength={1000}
                 />
               </div>
             </div>
