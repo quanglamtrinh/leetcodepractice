@@ -56,7 +56,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     setActiveBlock(1);
   }, [problem.id, problem.notes]);
 
-  // Save notes to backend
+  // Save notes to backend with debouncing
   const saveNotes = useCallback(async (blocksToSave: Block[]) => {
     setStatus('Saving...');
     try {
@@ -85,10 +85,24 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     }
   }, [problem, onNotesSaved]);
 
-  // Save on blocks change
+  // Debounced save function
+  const debouncedSave = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (blocksToSave: Block[]) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          saveNotes(blocksToSave);
+        }, 500); // 500ms debounce
+      };
+    })(),
+    [saveNotes]
+  );
+
+  // Save on blocks change with debouncing
   useEffect(() => {
     if (blocks && blocks.length > 0) {
-      saveNotes(blocks);
+      debouncedSave(blocks);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blocks]);
@@ -112,7 +126,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     }, 0);
   };
 
-  const handleInputChange = (blockId: number, value: string) => {
+  const handleInputChange = useCallback((blockId: number, value: string) => {
     if (value === '/') {
       const textarea = textareaRefs.current[blockId];
       if (textarea) {
@@ -130,22 +144,24 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     if (showMenu.show && showMenu.blockId === blockId && !value.startsWith('/')) {
       setShowMenu({ show: false, blockId: null });
     }
-    setBlocks(blocks.map(block => block.id === blockId ? { ...block, content: value } : block));
-  };
+    setBlocks(prevBlocks => prevBlocks.map(block => block.id === blockId ? { ...block, content: value } : block));
+  }, [showMenu.show, showMenu.blockId]);
 
-  const changeBlockType = (blockId: number, newType: string) => {
-    const currentBlock = blocks.find(b => b.id === blockId);
-    if (!currentBlock) return;
-    const cleanContent = newType === 'divider' ? '' : currentBlock.content.replace(/^\/\w*/, '').trim();
-    const updatedBlocks = blocks.map(block =>
-      block.id === blockId ? {
-        ...block,
-        type: newType,
-        content: cleanContent,
-        placeholder: blockTypes.find(t => t.type === newType)?.placeholder || ''
-      } : block
-    );
-    setBlocks(updatedBlocks);
+  const changeBlockType = useCallback((blockId: number, newType: string) => {
+    let cleanContent = '';
+    setBlocks(prevBlocks => {
+      const currentBlock = prevBlocks.find(b => b.id === blockId);
+      if (!currentBlock) return prevBlocks;
+      cleanContent = newType === 'divider' ? '' : currentBlock.content.replace(/^\/\w*/, '').trim();
+      return prevBlocks.map(block =>
+        block.id === blockId ? {
+          ...block,
+          type: newType,
+          content: cleanContent,
+          placeholder: blockTypes.find(t => t.type === newType)?.placeholder || ''
+        } : block
+      );
+    });
     setShowMenu({ show: false, blockId: null });
     setTimeout(() => {
       if (newType !== 'divider') {
@@ -156,7 +172,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
         }
       }
     }, 150);
-  };
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, blockId: number) => {
     if (e.key === 'Escape' && showMenu.show) {
