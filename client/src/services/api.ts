@@ -1,7 +1,7 @@
 // API service for pattern and variant management
 import { PatternFormData, VariantFormData, Concept, Technique, Goal, TemplateBasic, Pattern } from '../components/AddEntryForm';
 
-const API_BASE_URL = 'http://localhost:3001';
+const API_BASE_URL = '';
 
 // API Response types
 export interface ApiResponse<T> {

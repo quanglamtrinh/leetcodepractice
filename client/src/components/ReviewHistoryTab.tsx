@@ -36,7 +36,7 @@ const ReviewHistoryTab: React.FC<ReviewHistoryTabProps> = ({ problemId, problemT
   };
 
   useEffect(() => {
-    fetch(`http://localhost:3001/api/problems/${problemId}/review-history`)
+    fetch(`/api/problems/${problemId}/review-history`)
       .then(res => res.json())
       .then(setHistory);
   }, [problemId]);

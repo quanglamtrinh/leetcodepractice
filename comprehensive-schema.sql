@@ -329,11 +329,11 @@ BEGIN
         (CURRENT_DATE - rh.next_review_date)::INTEGER as days_overdue
     FROM problems p
     INNER JOIN (
-        SELECT DISTINCT ON (problem_id) 
-            problem_id, 
-            next_review_date
+        SELECT DISTINCT ON (review_history.problem_id) 
+            review_history.problem_id, 
+            review_history.next_review_date
         FROM review_history 
-        ORDER BY problem_id, created_at DESC
+        ORDER BY review_history.problem_id, review_history.created_at DESC
     ) rh ON p.id = rh.problem_id
     WHERE rh.next_review_date <= CURRENT_DATE
     ORDER BY rh.next_review_date ASC, p.difficulty DESC;
@@ -383,15 +383,15 @@ BEGIN
                     IF i < array_length(current_pattern, 1) THEN
                         next_interval := current_pattern[i + 1];
                     ELSE
-                        next_interval := last_interval * 2;
+                        next_interval := LEAST(last_interval * 2, 365); -- Cap at 1 year
                     END IF;
                     EXIT;
                 END IF;
             END LOOP;
             
-            -- If not found in pattern, double the interval
+            -- If not found in pattern, double the interval with cap
             IF next_interval IS NULL THEN
-                next_interval := last_interval * 2;
+                next_interval := LEAST(last_interval * 2, 365); -- Cap at 1 year
             END IF;
         END IF;
     ELSE

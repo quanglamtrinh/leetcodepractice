@@ -93,7 +93,7 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
   const saveSolution = useCallback(async (content: string) => {
     setStatus('Saving...');
     try {
-      const response = await fetch(`http://localhost:3001/api/problems/${problem.id}/progress`, {
+      const response = await fetch(`/api/problems/${problem.id}/progress`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

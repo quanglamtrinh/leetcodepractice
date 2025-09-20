@@ -34,6 +34,16 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
   const problem = problems[current];
   const progress = Math.round(((current + 1) / problems.length) * 100);
 
+  // Safety check to prevent undefined access
+  if (!problem) {
+    return (
+      <div className="flashcard-study-complete">
+        <h2>Loading...</h2>
+        <p>Please wait while we load your problems.</p>
+      </div>
+    );
+  }
+
   const handleFlip = () => setFlipped(f => !f);
   const handlePrev = () => setCurrent(c => (c > 0 ? c - 1 : c));
   const handleNext = () => setCurrent(c => (c < problems.length - 1 ? c + 1 : c));
@@ -47,7 +57,7 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
       const timeSpent = (document.getElementById('flashcardTimeInput') as HTMLInputElement)?.value || '';
       const comment = (document.getElementById('flashcardCommentInput') as HTMLTextAreaElement)?.value || '';
       
-      await fetch(`http://localhost:3001/api/problems/${problem.id}/review`, {
+      await fetch(`/api/problems/${problem.id}/review`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -73,7 +83,7 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
       const timeSpent = (document.getElementById('flashcardTimeInput') as HTMLInputElement)?.value || '';
       const comment = (document.getElementById('flashcardCommentInput') as HTMLTextAreaElement)?.value || '';
       
-      await fetch(`http://localhost:3001/api/problems/${problem.id}/review`, {
+      await fetch(`/api/problems/${problem.id}/review`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -125,7 +135,11 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
         </div>
         <div className={`flashcard${flipped ? ' flipped' : ''}`} id="flashcard" onClick={handleFlip} style={{ cursor: 'pointer' }}>
           <div className="flashcard-front">
-            <div className="flashcard-label"><a href={problem.leetcode_link} target="_blank" className="flashcard-leetcode-link">View on LeetCode</a></div>
+            <div className="flashcard-label">
+              {problem.leetcode_link && (
+                <a href={problem.leetcode_link} target="_blank" rel="noopener noreferrer" className="flashcard-leetcode-link">View on LeetCode</a>
+              )}
+            </div>
             <div className="flashcard-content" id="frontContent">{problem.title}</div>
             <div className="flashcard-extra-inputs">
               <label>
@@ -140,7 +154,11 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
             <div className="flashcard-flip-hint"><span>Click to reveal details</span></div>
           </div>
           <div className="flashcard-back">
-            <div className="flashcard-label"><a href={problem.leetcode_link} target="_blank" className="flashcard-leetcode-link">View on LeetCode</a></div>
+            <div className="flashcard-label">
+              {problem.leetcode_link && (
+                <a href={problem.leetcode_link} target="_blank" rel="noopener noreferrer" className="flashcard-leetcode-link">View on LeetCode</a>
+              )}
+            </div>
             <div className="flashcard-content" id="backContent">
               {problem.solution && problem.solution.trim() ? (
                 <div className="flashcard-solution">

@@ -25,7 +25,7 @@ const App: React.FC = () => {
   const [loadingSolved, setLoadingSolved] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/problems')
+    fetch('/api/problems')
       .then(res => res.json())
       .then(setProblems);
   }, []);
@@ -33,7 +33,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (view === 'due-today') {
       setLoadingDueToday(true);
-      fetch('http://localhost:3001/api/due-today')
+      fetch('/api/due-today')
         .then(res => res.json())
         .then(data => setDueTodayProblems(data))
         .finally(() => setLoadingDueToday(false));
@@ -43,7 +43,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (view === 'solved') {
       setLoadingSolved(true);
-      fetch('http://localhost:3001/api/solved')
+      fetch('/api/solved')
         .then(res => res.json())
         .then(data => setSolvedProblems(data))
         .finally(() => setLoadingSolved(false));
@@ -115,16 +115,16 @@ const App: React.FC = () => {
     
     const newSolvedState = !currentProblem.solved;
     
-    await fetch(`http://localhost:3001/api/problems/${problemId}/progress`, {
+    await fetch(`/api/problems/${problemId}/progress`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ solved: newSolvedState })
     });
     // Refresh problems and solvedProblems
-    fetch('http://localhost:3001/api/problems')
+    fetch('/api/problems')
       .then(res => res.json())
       .then(setProblems);
-    fetch('http://localhost:3001/api/solved')
+    fetch('/api/solved')
       .then(res => res.json())
       .then(setSolvedProblems);
   };

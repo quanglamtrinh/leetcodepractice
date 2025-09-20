@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "setup-db": "node setup-database.js",
-    "test-db": "node -e \"require('./setup-database.js').testConnection().then(() => process.exit(0)).catch(() => process.exit(1))\"",
+    "setup": "node setup-comprehensive-database.js",
+    "test-db": "node -e \"require('./setup-comprehensive-database.js').testConnection().then(() => process.exit(0)).catch(() => process.exit(1))\"",
     "import-data": "curl -X POST http://localhost:3001/api/import-problems",
     "health": "curl http://localhost:3001/api/health"
   },
