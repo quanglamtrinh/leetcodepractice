@@ -27,7 +27,7 @@ const SolvedProblemsList: React.FC<SolvedProblemsListProps> = ({ problems, selec
           >
             <div className="problem-title-flex">
               <div className="problem-title-group">
-                <span className="text-white font-medium problem-title-detail">{problem.title}</span>
+                <span className="text-gray-800 font-medium problem-title-detail">{problem.title}</span>
               </div>
               <div className="solved-problem-actions">
                 <span className={`difficulty-badge difficulty-${problem.difficulty.toLowerCase()}`}>{problem.difficulty}</span>

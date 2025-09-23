@@ -7,9 +7,9 @@ interface SolutionTabProps {
 }
 
 const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) => {
-  const [solution, setSolution] = useState('');
+  const [, setSolution] = useState('');
   const [status, setStatus] = useState('');
-  const editorRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLDivElement | null>(null);
   const lastProblemId = useRef<number>(problem.id);
 
   // Load solution from problem object when problem changes (matching script.js logic)

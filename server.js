@@ -105,6 +105,31 @@ app.get('/api/problems/:id', async (req, res) => {
   }
 });
 
+// Update problem notes only
+app.put('/api/problems/:id/notes', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+    
+    const result = await pool.query(`
+      UPDATE problems 
+      SET notes = $1, 
+          updated_at = CURRENT_TIMESTAMP 
+      WHERE id = $2 
+      RETURNING *
+    `, [notes, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating notes:', err);
+    res.status(500).json({ error: 'Failed to update notes' });
+  }
+});
+
 // Update problem progress with spaced repetition initialization
 app.put('/api/problems/:id/progress', async (req, res) => {
   try {
