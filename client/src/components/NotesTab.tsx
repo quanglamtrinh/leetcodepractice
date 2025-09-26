@@ -35,6 +35,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
   const [showMenu, setShowMenu] = useState<{ show: boolean; blockId: number | null; x?: number; y?: number }>({ show: false, blockId: null });
   const [activeBlock, setActiveBlock] = useState(1);
   const [, setStatus] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const textareaRefs = useRef<{ [key: number]: HTMLTextAreaElement | null }>({});
   const codeBlockRefs = useRef<{ [key: number]: any }>({});
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -144,6 +145,242 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     }, 0);
   };
 
+  const moveBlockDown = (blockId: number) => {
+    const currentIndex = blocks.findIndex(b => b.id === blockId);
+    if (currentIndex === -1) return;
+    
+    // Create a new empty text block to insert above the current block
+    const newBlockId = Math.max(...blocks.map(b => b.id)) + 1;
+    const newBlock: Block = {
+      id: newBlockId,
+      type: 'text',
+      content: '',
+      placeholder: blockTypes.find(t => t.type === 'text')?.placeholder || ''
+    };
+    
+    // Insert the new block at the current position, pushing the current block down
+    const newBlocks = [...blocks];
+    newBlocks.splice(currentIndex, 0, newBlock);
+    
+    setBlocks(prevBlocks => {
+      blocksRef.current = newBlocks;
+      // Trigger debounced save (will use latest blocks from ref)
+      debouncedSave();
+      return newBlocks;
+    });
+    
+    // Focus the original block (which is now below)
+    setActiveBlock(blockId);
+    setTimeout(() => {
+      const textarea = textareaRefs.current[blockId];
+      if (textarea) {
+        textarea.focus();
+        // Ensure cursor is at the start of the original block
+        textarea.setSelectionRange(0, 0);
+      }
+    }, 0);
+  };
+
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>, blockId: number) => {
+    const clipboardData = e.clipboardData;
+    const htmlData = clipboardData.getData('text/html');
+    const textData = clipboardData.getData('text/plain');
+    
+    // Only handle multi-line content or HTML content
+    if (htmlData || (textData && textData.includes('\n'))) {
+      e.preventDefault();
+      
+      if (htmlData) {
+        // Parse HTML content and convert to blocks
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlData, 'text/html');
+        const parsedBlocks = parseHtmlToBlocks(doc.body);
+        
+        if (parsedBlocks.length > 0) {
+          const currentIndex = blocks.findIndex(b => b.id === blockId);
+          if (currentIndex !== -1) {
+            const newBlocks = [...blocks];
+            
+            // Replace current block with first parsed block
+            newBlocks[currentIndex] = parsedBlocks[0];
+            
+            // Add remaining blocks after current one
+            for (let i = 1; i < parsedBlocks.length; i++) {
+              newBlocks.splice(currentIndex + i, 0, parsedBlocks[i]);
+            }
+            
+            setBlocks(prevBlocks => {
+              blocksRef.current = newBlocks;
+              debouncedSave();
+              return newBlocks;
+            });
+            
+            // Focus the last added block
+            const lastBlock = parsedBlocks[parsedBlocks.length - 1];
+            setActiveBlock(lastBlock.id);
+            setTimeout(() => {
+              const textarea = textareaRefs.current[lastBlock.id];
+              if (textarea) {
+                textarea.focus();
+                textarea.setSelectionRange(lastBlock.content.length, lastBlock.content.length);
+              }
+            }, 0);
+          }
+        }
+      } else if (textData && textData.includes('\n')) {
+        // Handle plain text with multiple lines
+        const lines = textData.split('\n').filter(line => line.trim() !== '');
+        if (lines.length > 1) {
+          const currentIndex = blocks.findIndex(b => b.id === blockId);
+          if (currentIndex !== -1) {
+            const newBlocks = [...blocks];
+            
+            // Replace current block with first line
+            newBlocks[currentIndex] = {
+              ...newBlocks[currentIndex],
+              content: lines[0]
+            };
+            
+            // Add remaining lines as new blocks
+            for (let i = 1; i < lines.length; i++) {
+              const newBlockId = Math.max(...blocks.map(b => b.id)) + i;
+              newBlocks.splice(currentIndex + i, 0, {
+                id: newBlockId,
+                type: 'text',
+                content: lines[i],
+                placeholder: 'Type something...'
+              });
+            }
+            
+            setBlocks(prevBlocks => {
+              blocksRef.current = newBlocks;
+              debouncedSave();
+              return newBlocks;
+            });
+            
+            // Focus the last added block
+            const lastBlockId = newBlocks[currentIndex + lines.length - 1].id;
+            setActiveBlock(lastBlockId);
+            setTimeout(() => {
+              const textarea = textareaRefs.current[lastBlockId];
+              if (textarea) {
+                textarea.focus();
+                textarea.setSelectionRange(lines[lines.length - 1].length, lines[lines.length - 1].length);
+              }
+            }, 0);
+          }
+        }
+      }
+    }
+    // For single-line text, let the default paste behavior handle it
+  }, [blocks, debouncedSave]);
+
+  const parseHtmlToBlocks = (element: HTMLElement): Block[] => {
+    const parsedBlocks: Block[] = [];
+    let blockId = Math.max(...blocks.map(b => b.id)) + 1;
+    
+    const processElement = (el: HTMLElement) => {
+      if (el.nodeType === Node.ELEMENT_NODE) {
+        const tagName = el.tagName.toLowerCase();
+        
+        // Handle specific elements first
+        switch (tagName) {
+          case 'h1':
+          case 'h2':
+          case 'h3':
+          case 'h4':
+          case 'h5':
+          case 'h6': {
+            const textContent = el.textContent?.trim() || '';
+            if (textContent) {
+              parsedBlocks.push({
+                id: blockId++,
+                type: 'heading',
+                content: textContent,
+                placeholder: 'Type something...'
+              });
+            }
+            return; // Don't process children of headings
+          }
+          case 'ul':
+          case 'ol': {
+            // Handle lists - create bullet blocks for each li
+            const listItems = el.querySelectorAll('li');
+            listItems.forEach(li => {
+              const textContent = li.textContent?.trim() || '';
+              if (textContent) {
+                parsedBlocks.push({
+                  id: blockId++,
+                  type: 'bullet',
+                  content: textContent,
+                  placeholder: 'Type something...'
+                });
+              }
+            });
+            return; // Don't process children of lists
+          }
+          case 'blockquote': {
+            const textContent = el.textContent?.trim() || '';
+            if (textContent) {
+              parsedBlocks.push({
+                id: blockId++,
+                type: 'quote',
+                content: textContent,
+                placeholder: 'Type something...'
+              });
+            }
+            return; // Don't process children of blockquotes
+          }
+          case 'pre':
+          case 'code': {
+            const textContent = el.textContent?.trim() || '';
+            if (textContent) {
+              parsedBlocks.push({
+                id: blockId++,
+                type: 'code',
+                content: textContent,
+                placeholder: 'Type something...'
+              });
+            }
+            return; // Don't process children of code blocks
+          }
+          case 'p': {
+            // Only process paragraphs that are not inside list items
+            if (el.parentElement?.tagName.toLowerCase() !== 'li') {
+              const textContent = el.textContent?.trim() || '';
+              if (textContent) {
+                parsedBlocks.push({
+                  id: blockId++,
+                  type: 'text',
+                  content: textContent,
+                  placeholder: 'Type something...'
+                });
+              }
+            }
+            return; // Don't process children of paragraphs
+          }
+          case 'div': {
+            // Process div children but don't create a block for the div itself
+            Array.from(el.children).forEach(child => {
+              processElement(child as HTMLElement);
+            });
+            return;
+          }
+          default: {
+            // For other elements, process their children
+            Array.from(el.children).forEach(child => {
+              processElement(child as HTMLElement);
+            });
+            return;
+          }
+        }
+      }
+    };
+    
+    processElement(element);
+    return parsedBlocks;
+  };
+
   const handleInputChange = useCallback((blockId: number, value: string) => {
     console.log('⌨️ handleInputChange called:', { blockId, value });
     
@@ -189,17 +426,17 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
           setShowMenu({ show: true, blockId, x: relativeX, y: relativeY });
         } else {
           // Fallback to original positioning
-          setShowMenu({ show: true, blockId, x: rect.left, y: rect.bottom + window.scrollY });
+        setShowMenu({ show: true, blockId, x: rect.left, y: rect.bottom + window.scrollY });
         }
       }
       
       // Handle specific slash commands
-      if (value === '/code') {
-        setTimeout(() => {
-          changeBlockType(blockId, 'code');
-        }, 100);
-        return;
-      }
+    if (value === '/code') {
+      setTimeout(() => {
+        changeBlockType(blockId, 'code');
+      }, 100);
+      return;
+    }
       if (value === '/heading') {
         setTimeout(() => {
           changeBlockType(blockId, 'heading');
@@ -227,7 +464,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     } else {
       // Hide menu if not typing slash commands
       if (showMenu.show && showMenu.blockId === blockId) {
-        setShowMenu({ show: false, blockId: null });
+      setShowMenu({ show: false, blockId: null });
       }
     }
     
@@ -250,13 +487,13 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       if (!currentBlock) return prevBlocks;
       cleanContent = newType === 'divider' ? '' : currentBlock.content.replace(/^\/\w*/, '').trim();
       const newBlocks = prevBlocks.map(block =>
-        block.id === blockId ? {
-          ...block,
-          type: newType,
-          content: cleanContent,
-          placeholder: blockTypes.find(t => t.type === newType)?.placeholder || ''
-        } : block
-      );
+      block.id === blockId ? {
+        ...block,
+        type: newType,
+        content: cleanContent,
+        placeholder: blockTypes.find(t => t.type === newType)?.placeholder || ''
+      } : block
+    );
       blocksRef.current = newBlocks;
       // Trigger debounced save (will use latest blocks from ref)
       debouncedSave();
@@ -272,6 +509,47 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
         }
       }
     }, 150);
+  }, []);
+
+  const selectAllContent = useCallback(() => {
+    // Get the currently active textarea
+    const activeTextarea = textareaRefs.current[activeBlock];
+    
+    if (activeTextarea && activeTextarea.value.trim() !== '') {
+      // If active block has content, select all content in that block
+      activeTextarea.focus();
+      activeTextarea.setSelectionRange(0, activeTextarea.value.length);
+      console.log('📋 Selected all content in active block:', activeBlock);
+    } else {
+      // If active block is empty, select all content across all blocks
+      const allTextareas = Object.values(textareaRefs.current).filter(Boolean) as HTMLTextAreaElement[];
+      
+      if (allTextareas.length > 0) {
+        // Select all content in all blocks simultaneously
+        allTextareas.forEach((textarea, index) => {
+          if (textarea.value.trim() !== '') {
+            // Select all content in this textarea
+            textarea.setSelectionRange(0, textarea.value.length);
+            console.log(`📋 Selected content in block ${index + 1}:`, textarea.value.substring(0, 50) + '...');
+          }
+        });
+        
+        // Focus the first non-empty block
+        const firstNonEmpty = allTextareas.find(textarea => textarea.value.trim() !== '');
+        if (firstNonEmpty) {
+          firstNonEmpty.focus();
+          console.log('📋 Focused first non-empty block after selecting all content');
+        } else {
+          // If all blocks are empty, focus the first block
+          allTextareas[0].focus();
+          console.log('📋 All blocks are empty, focused first block');
+        }
+      }
+    }
+  }, [activeBlock]);
+
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen(prev => !prev);
   }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, blockId: number) => {
@@ -324,7 +602,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
           setShowMenu({ show: true, blockId });
         }
       } else {
-        setShowMenu({ show: true, blockId });
+      setShowMenu({ show: true, blockId });
       }
       setTimeout(() => {
         if (textarea) {
@@ -335,7 +613,20 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       }, 0);
     } else if (e.key === 'Enter' && !showMenu.show) {
       e.preventDefault();
+      const textarea = e.target as HTMLTextAreaElement;
+      const cursorPosition = textarea.selectionStart || 0;
+      const currentBlock = blocks.find(b => b.id === blockId);
+      
+      // If cursor is at the start of the block, move current block down and create new block above
+      if (cursorPosition === 0) {
+        moveBlockDown(blockId);
+      } else if (currentBlock?.type === 'bullet') {
+        // If it's a bullet block, create a new bullet block below
+        addNewBlock(blockId, 'bullet');
+      } else {
+        // Normal behavior: add new text block after current one
       addNewBlock(blockId);
+      }
     } else if (e.key === 'Enter' && showMenu.show) {
       // If menu is open and Enter is pressed, select the first option
       e.preventDefault();
@@ -352,50 +643,69 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     } else if (e.key === 'Backspace') {
       const textarea = e.target as HTMLTextAreaElement;
       const cursorPosition = textarea.selectionStart || 0;
+      const currentBlock = blocks.find(b => b.id === blockId);
       
-      // If cursor is at the start of the line (position 0) and there are multiple blocks
-      if (cursorPosition === 0 && blocks.length > 1) {
+      // If cursor is at the start of the line (position 0)
+      if (cursorPosition === 0) {
         e.preventDefault();
-        const currentIndex = blocks.findIndex(b => b.id === blockId);
-        const prevBlock = blocks[currentIndex - 1];
         
-        if (prevBlock && prevBlock.type !== 'divider') {
-          // Merge current block content with previous block
-          const newContent = prevBlock.content + textarea.value;
+        // Special case: Convert bullet block to text block
+        if (currentBlock?.type === 'bullet') {
           setBlocks(prevBlocks => {
             const newBlocks = prevBlocks.map(block =>
-              block.id === prevBlock.id ? { ...block, content: newContent } : block
-            ).filter(block => block.id !== blockId);
+              block.id === blockId ? { ...block, type: 'text', placeholder: 'Type something...' } : block
+            );
             blocksRef.current = newBlocks;
             return newBlocks;
           });
-          setActiveBlock(prevBlock.id);
-          setTimeout(() => {
-            const prevTextarea = textareaRefs.current[prevBlock.id];
-            if (prevTextarea) {
-              prevTextarea.focus();
-              prevTextarea.setSelectionRange(newContent.length, newContent.length);
-            }
-          }, 0);
           // Trigger debounced save
           debouncedSave();
-        } else {
-          // Delete current block if no previous block or previous is divider
-          setBlocks(prevBlocks => {
-            const newBlocks = prevBlocks.filter(block => block.id !== blockId);
-            blocksRef.current = newBlocks;
-            return newBlocks;
-          });
-          const nextBlock = blocks[currentIndex + 1] || blocks[currentIndex - 1];
-          if (nextBlock) {
-            setActiveBlock(nextBlock.id);
+          return;
+        }
+        
+        // If there are multiple blocks, handle merging or deletion
+        if (blocks.length > 1) {
+          const currentIndex = blocks.findIndex(b => b.id === blockId);
+          const prevBlock = blocks[currentIndex - 1];
+          
+          if (prevBlock && prevBlock.type !== 'divider') {
+            // Merge current block content with previous block
+            const newContent = prevBlock.content + textarea.value;
+            setBlocks(prevBlocks => {
+              const newBlocks = prevBlocks.map(block =>
+                block.id === prevBlock.id ? { ...block, content: newContent } : block
+              ).filter(block => block.id !== blockId);
+              blocksRef.current = newBlocks;
+              return newBlocks;
+            });
+            setActiveBlock(prevBlock.id);
             setTimeout(() => {
-              const textarea = textareaRefs.current[nextBlock.id];
-              if (textarea) textarea.focus();
+                const prevTextarea = textareaRefs.current[prevBlock.id];
+                if (prevTextarea) {
+                  prevTextarea.focus();
+                prevTextarea.setSelectionRange(newContent.length, newContent.length);
+              }
             }, 0);
+            // Trigger debounced save
+            debouncedSave();
+          } else {
+            // Delete current block if no previous block or previous is divider
+            setBlocks(prevBlocks => {
+              const newBlocks = prevBlocks.filter(block => block.id !== blockId);
+              blocksRef.current = newBlocks;
+              return newBlocks;
+            });
+            const nextBlock = blocks[currentIndex + 1] || blocks[currentIndex - 1];
+            if (nextBlock) {
+              setActiveBlock(nextBlock.id);
+              setTimeout(() => {
+                const textarea = textareaRefs.current[nextBlock.id];
+                if (textarea) textarea.focus();
+              }, 0);
+            }
+            // Trigger debounced save
+            debouncedSave();
           }
-          // Trigger debounced save
-          debouncedSave();
         }
       }
     }
@@ -534,7 +844,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       quote: "text-gray-700 text-base leading-6 border-l-4 border-gray-300 pl-4 italic"
     };
     return (
-      <div key={block.id} className="relative group mb-2">
+      <div key={block.id} className="relative group mb-2" onClick={() => setActiveBlock(block.id)}>
         <div className="flex items-start">
           {block.type === 'bullet' && (
             <span className="absolute left-2 top-1 w-1 h-1 bg-gray-400 rounded-full"></span>
@@ -548,9 +858,9 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
               onFocus={() => setActiveBlock(block.id)}
               placeholder={block.placeholder}
               className={`${baseClasses} ${typeClasses[block.type]} placeholder-gray-400`}
-              rows={1}
+              rows={block.type === 'heading' ? 1 : 1}
               style={{
-                minHeight: '1.5rem',
+                minHeight: block.type === 'heading' ? '30px' : '1.5rem',
                 height: 'auto',
                 resize: 'none'
               }}
@@ -559,11 +869,12 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
                 target.style.height = 'auto';
                 target.style.height = target.scrollHeight + 'px';
               }}
+              onPaste={(e: React.ClipboardEvent<HTMLTextAreaElement>) => handlePaste(e, block.id)}
             />
             {showMenu.show && showMenu.blockId === block.id && (
               <div
                 ref={menuRef}
-                className="absolute z-10 bg-white border border-gray-200 rounded-lg shadow-lg py-2 w-64"
+                className="z-10 bg-white border border-gray-200 rounded-lg shadow-lg py-2 w-64"
                 style={{
                   left: showMenu.x ? `${showMenu.x}px` : '0px',
                   top: showMenu.y ? `${showMenu.y}px` : (menuPositionRef.current === 'bottom' ? 'calc(100% + 8px)' : undefined),
@@ -589,12 +900,12 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
                            option.label.toLowerCase().includes(searchTerm);
                   })
                   .map(option => (
-                    <MenuOption
-                      key={option.type}
-                      option={option}
-                      onClick={(type: string) => changeBlockType(showMenu.blockId!, type)}
-                    />
-                  ))}
+                  <MenuOption
+                    key={option.type}
+                    option={option}
+                    onClick={(type: string) => changeBlockType(showMenu.blockId!, type)}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -634,11 +945,71 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     };
   }, [showMenu.show]);
 
+  // Simple drag and drop handler
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    
+    const textData = e.dataTransfer.getData('text/plain');
+    if (textData) {
+      // Add dropped text as a new block
+      const newBlock: Block = {
+        id: Math.max(...blocks.map(b => b.id)) + 1,
+        type: 'text',
+        content: textData,
+        placeholder: 'Type something...'
+      };
+      
+      setBlocks(prevBlocks => {
+        const newBlocks = [...prevBlocks, newBlock];
+        blocksRef.current = newBlocks;
+        debouncedSave();
+        return newBlocks;
+      });
+      
+      // Focus the new block
+      setActiveBlock(newBlock.id);
+      setTimeout(() => {
+        const textarea = textareaRefs.current[newBlock.id];
+        if (textarea) {
+          textarea.focus();
+        }
+      }, 0);
+    }
+  }, [blocks, debouncedSave]);
+
   return (
     <div 
-      className="notes-editor" 
-      style={{ background: '#fff', minHeight: 200 }}
+      className={`notes-editor ${isFullscreen ? 'fixed inset-0 z-50 bg-white' : ''}`}
+      style={{ 
+        background: '#fff', 
+        minHeight: isFullscreen ? '100vh' : 200,
+        ...(isFullscreen && { padding: '20px' })
+      }}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
       onKeyDown={(e) => {
+        // Handle Ctrl+A (Select All) globally in the notes editor
+        if (e.key === 'a' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          console.log('🎯 Ctrl+A pressed in notes editor');
+          selectAllContent();
+          return;
+        }
+        
+        // Handle F11 for fullscreen toggle
+        if (e.key === 'F11') {
+          e.preventDefault();
+          toggleFullscreen();
+          return;
+        }
+        
+        // Handle Escape to exit fullscreen
+        if (e.key === 'Escape' && isFullscreen) {
+          e.preventDefault();
+          setIsFullscreen(false);
+          return;
+        }
+        
         // Handle Backspace when cursor is not in any block
         if (e.key === 'Backspace' && document.activeElement === e.currentTarget) {
           
@@ -660,6 +1031,31 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       }}
       tabIndex={0}
     >
+      {/* Fullscreen Toggle Button */}
+      <div className={`flex justify-end ${isFullscreen ? 'mb-4' : 'mb-2'}`}>
+        <button
+          onClick={toggleFullscreen}
+          className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+        >
+          {isFullscreen ? (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Exit Fullscreen
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+              Fullscreen
+            </>
+          )}
+        </button>
+      </div>
+      
       {blocks.map(renderBlock)}
       <div
         className="min-h-[100px] cursor-pointer"

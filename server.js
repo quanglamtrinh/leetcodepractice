@@ -1020,6 +1020,626 @@ app.put('/api/problems/:id/review', async (req, res) => {
   }
 });
 
+// ============================================================================
+// PROBLEM-PATTERN-VARIANT ASSOCIATION ENDPOINTS
+// ============================================================================
+
+// Get all associations for a specific problem
+app.get('/api/problems/:id/associations', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(`
+      SELECT 
+        pa.id as association_id,
+        pa.problem_id,
+        pa.pattern_id,
+        pa.variant_id,
+        pa.concept_id,
+        pa.technique_id,
+        pa.goal_id,
+        pa.scenario_notes,
+        pa.application_notes,
+        pa.difficulty_override,
+        pa.is_primary,
+        pa.created_at,
+        p.name as pattern_name,
+        p.description as pattern_description,
+        v.name as variant_name,
+        v.use_when as variant_use_when,
+        v.notes as variant_notes,
+        c.name as concept_name,
+        c.concept_id as concept_identifier,
+        t.name as technique_name,
+        g.name as goal_name,
+        tb.template_code as pattern_template_code
+      FROM problem_associations pa
+      LEFT JOIN patterns p ON pa.pattern_id = p.id
+      LEFT JOIN variants v ON pa.variant_id = v.id
+      LEFT JOIN concepts c ON pa.concept_id = c.id
+      LEFT JOIN techniques t ON pa.technique_id = t.id
+      LEFT JOIN goals g ON pa.goal_id = g.id
+      LEFT JOIN template_basics tb ON p.template_id = tb.id
+      WHERE pa.problem_id = $1
+      ORDER BY pa.is_primary DESC, pa.created_at ASC
+    `, [id]);
+    
+    // Group the results into patterns and variants
+    const associations = {
+      problem_id: parseInt(id),
+      patterns: [],
+      variants: [],
+      associations: result.rows
+    };
+    
+    // Extract unique patterns and variants
+    const patternMap = new Map();
+    const variantMap = new Map();
+    
+    result.rows.forEach(row => {
+      if (row.pattern_id && !patternMap.has(row.pattern_id)) {
+        patternMap.set(row.pattern_id, {
+          id: row.pattern_id,
+          name: row.pattern_name,
+          description: row.pattern_description,
+          concept: row.concept_name,
+          concept_id: row.concept_identifier,
+          template_code: row.pattern_template_code
+        });
+      }
+      
+      if (row.variant_id && !variantMap.has(row.variant_id)) {
+        variantMap.set(row.variant_id, {
+          id: row.variant_id,
+          name: row.variant_name,
+          use_when: row.variant_use_when,
+          notes: row.variant_notes,
+          pattern_id: row.pattern_id,
+          technique: row.technique_name,
+          goal: row.goal_name
+        });
+      }
+    });
+    
+    associations.patterns = Array.from(patternMap.values());
+    associations.variants = Array.from(variantMap.values());
+    
+    res.json(associations);
+  } catch (err) {
+    console.error('Error fetching problem associations:', err);
+    res.status(500).json({ error: 'Failed to fetch problem associations' });
+  }
+});
+
+// Create new association for a problem
+app.post('/api/problems/:id/associations', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      pattern_id, 
+      variant_id, 
+      concept_id, 
+      technique_id, 
+      goal_id, 
+      scenario_notes, 
+      application_notes,
+      difficulty_override,
+      is_primary 
+    } = req.body;
+    
+    // Validate that at least pattern or variant is provided
+    if (!pattern_id && !variant_id) {
+      return res.status(400).json({ 
+        error: 'At least one of pattern_id or variant_id must be provided' 
+      });
+    }
+    
+    // If variant is provided, ensure it belongs to the pattern (if pattern is also provided)
+    if (variant_id && pattern_id) {
+      const variantCheck = await pool.query(
+        'SELECT pattern_id FROM variants WHERE id = $1',
+        [variant_id]
+      );
+      
+      if (variantCheck.rows.length === 0) {
+        return res.status(400).json({ error: 'Variant not found' });
+      }
+      
+      if (variantCheck.rows[0].pattern_id !== pattern_id) {
+        return res.status(400).json({ 
+          error: 'Variant does not belong to the specified pattern' 
+        });
+      }
+    }
+    
+    // If only variant is provided, get the pattern_id from the variant
+    let finalPatternId = pattern_id;
+    if (variant_id && !pattern_id) {
+      const variantInfo = await pool.query(
+        'SELECT pattern_id FROM variants WHERE id = $1',
+        [variant_id]
+      );
+      
+      if (variantInfo.rows.length > 0) {
+        finalPatternId = variantInfo.rows[0].pattern_id;
+      }
+    }
+    
+    const result = await pool.query(`
+      INSERT INTO problem_associations (
+        problem_id, pattern_id, variant_id, concept_id, technique_id, goal_id,
+        scenario_notes, application_notes, difficulty_override, is_primary
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *
+    `, [
+      id, finalPatternId, variant_id, concept_id, technique_id, goal_id,
+      scenario_notes, application_notes, difficulty_override, is_primary || false
+    ]);
+    
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error creating problem association:', err);
+    if (err.code === '23503') { // Foreign key violation
+      res.status(400).json({ error: 'Invalid reference to pattern, variant, concept, technique, or goal' });
+    } else {
+      res.status(500).json({ error: 'Failed to create problem association' });
+    }
+  }
+});
+
+// Update existing association
+app.put('/api/associations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      pattern_id, 
+      variant_id, 
+      concept_id, 
+      technique_id, 
+      goal_id, 
+      scenario_notes, 
+      application_notes,
+      difficulty_override,
+      is_primary 
+    } = req.body;
+    
+    // Validate that at least pattern or variant is provided
+    if (!pattern_id && !variant_id) {
+      return res.status(400).json({ 
+        error: 'At least one of pattern_id or variant_id must be provided' 
+      });
+    }
+    
+    const result = await pool.query(`
+      UPDATE problem_associations 
+      SET 
+        pattern_id = $1,
+        variant_id = $2,
+        concept_id = $3,
+        technique_id = $4,
+        goal_id = $5,
+        scenario_notes = $6,
+        application_notes = $7,
+        difficulty_override = $8,
+        is_primary = $9,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $10
+      RETURNING *
+    `, [
+      pattern_id, variant_id, concept_id, technique_id, goal_id,
+      scenario_notes, application_notes, difficulty_override, is_primary,
+      id
+    ]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Association not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating association:', err);
+    if (err.code === '23503') { // Foreign key violation
+      res.status(400).json({ error: 'Invalid reference to pattern, variant, concept, technique, or goal' });
+    } else {
+      res.status(500).json({ error: 'Failed to update association' });
+    }
+  }
+});
+
+// Delete association
+app.delete('/api/associations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      'DELETE FROM problem_associations WHERE id = $1 RETURNING *',
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Association not found' });
+    }
+    
+    res.json({ message: 'Association deleted successfully', deleted: result.rows[0] });
+  } catch (err) {
+    console.error('Error deleting association:', err);
+    res.status(500).json({ error: 'Failed to delete association' });
+  }
+});
+
+// Get association by ID with full details
+app.get('/api/associations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(`
+      SELECT 
+        pa.*,
+        p.name as pattern_name,
+        p.description as pattern_description,
+        v.name as variant_name,
+        v.use_when as variant_use_when,
+        v.notes as variant_notes,
+        c.name as concept_name,
+        t.name as technique_name,
+        g.name as goal_name,
+        pr.title as problem_title
+      FROM problem_associations pa
+      LEFT JOIN patterns p ON pa.pattern_id = p.id
+      LEFT JOIN variants v ON pa.variant_id = v.id
+      LEFT JOIN concepts c ON pa.concept_id = c.id
+      LEFT JOIN techniques t ON pa.technique_id = t.id
+      LEFT JOIN goals g ON pa.goal_id = g.id
+      LEFT JOIN problems pr ON pa.problem_id = pr.id
+      WHERE pa.id = $1
+    `, [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Association not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error fetching association:', err);
+    res.status(500).json({ error: 'Failed to fetch association' });
+  }
+});
+
+// ============================================================================
+// PROBLEM-PATTERN-VARIANT ASSOCIATION ENDPOINTS
+// ============================================================================
+
+// Get all associations for a specific problem
+app.get('/api/problems/:id/associations', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(`
+      SELECT 
+        pa.id,
+        pa.problem_id,
+        pa.pattern_id,
+        pa.variant_id,
+        pa.concept_id,
+        pa.technique_id,
+        pa.goal_id,
+        pa.scenario_notes,
+        pa.application_notes,
+        pa.difficulty_override,
+        pa.is_primary,
+        pa.created_at,
+        pa.updated_at,
+        p.name as pattern_name,
+        p.description as pattern_description,
+        v.name as variant_name,
+        v.use_when as variant_use_when,
+        v.notes as variant_notes,
+        c.name as concept_name,
+        c.concept_id as concept_identifier,
+        t.name as technique_name,
+        g.name as goal_name,
+        tb.template_code as pattern_template_code
+      FROM problem_associations pa
+      LEFT JOIN patterns p ON pa.pattern_id = p.id
+      LEFT JOIN variants v ON pa.variant_id = v.id
+      LEFT JOIN concepts c ON pa.concept_id = c.id
+      LEFT JOIN techniques t ON pa.technique_id = t.id
+      LEFT JOIN goals g ON pa.goal_id = g.id
+      LEFT JOIN template_basics tb ON p.template_id = tb.id
+      WHERE pa.problem_id = $1
+      ORDER BY pa.is_primary DESC, pa.created_at ASC
+    `, [id]);
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching problem associations:', err);
+    res.status(500).json({ error: 'Failed to fetch problem associations' });
+  }
+});
+
+// Create new problem-pattern-variant association
+app.post('/api/problems/:id/associations', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      pattern_id, 
+      variant_id, 
+      concept_id, 
+      technique_id, 
+      goal_id,
+      scenario_notes,
+      application_notes,
+      difficulty_override,
+      is_primary
+    } = req.body;
+    
+    // Validate that at least pattern or variant is provided
+    if (!pattern_id && !variant_id) {
+      return res.status(400).json({ error: 'Either pattern_id or variant_id must be provided' });
+    }
+    
+    // If variant is provided, ensure it belongs to the pattern (if pattern is also provided)
+    if (variant_id && pattern_id) {
+      const variantCheck = await pool.query(
+        'SELECT pattern_id FROM variants WHERE id = $1',
+        [variant_id]
+      );
+      
+      if (variantCheck.rows.length === 0) {
+        return res.status(400).json({ error: 'Variant not found' });
+      }
+      
+      if (variantCheck.rows[0].pattern_id !== parseInt(pattern_id)) {
+        return res.status(400).json({ error: 'Variant does not belong to the specified pattern' });
+      }
+    }
+    
+    // If only variant is provided, get the pattern from the variant
+    let finalPatternId = pattern_id;
+    if (variant_id && !pattern_id) {
+      const variantInfo = await pool.query(
+        'SELECT pattern_id FROM variants WHERE id = $1',
+        [variant_id]
+      );
+      
+      if (variantInfo.rows.length > 0) {
+        finalPatternId = variantInfo.rows[0].pattern_id;
+      }
+    }
+    
+    const result = await pool.query(`
+      INSERT INTO problem_associations (
+        problem_id, pattern_id, variant_id, concept_id, technique_id, goal_id,
+        scenario_notes, application_notes, difficulty_override, is_primary
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *
+    `, [
+      id, 
+      finalPatternId, 
+      variant_id, 
+      concept_id, 
+      technique_id, 
+      goal_id,
+      scenario_notes,
+      application_notes,
+      difficulty_override,
+      is_primary || false
+    ]);
+    
+    // Get the full association data with joined information
+    const fullResult = await pool.query(`
+      SELECT 
+        pa.*,
+        p.name as pattern_name,
+        v.name as variant_name,
+        c.name as concept_name,
+        t.name as technique_name,
+        g.name as goal_name
+      FROM problem_associations pa
+      LEFT JOIN patterns p ON pa.pattern_id = p.id
+      LEFT JOIN variants v ON pa.variant_id = v.id
+      LEFT JOIN concepts c ON pa.concept_id = c.id
+      LEFT JOIN techniques t ON pa.technique_id = t.id
+      LEFT JOIN goals g ON pa.goal_id = g.id
+      WHERE pa.id = $1
+    `, [result.rows[0].id]);
+    
+    res.status(201).json(fullResult.rows[0]);
+  } catch (err) {
+    console.error('Error creating problem association:', err);
+    if (err.code === '23503') { // Foreign key violation
+      res.status(400).json({ error: 'Invalid reference to pattern, variant, concept, technique, or goal' });
+    } else {
+      res.status(500).json({ error: 'Failed to create problem association' });
+    }
+  }
+});
+
+// Update existing association
+app.put('/api/associations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      pattern_id, 
+      variant_id, 
+      concept_id, 
+      technique_id, 
+      goal_id,
+      scenario_notes,
+      application_notes,
+      difficulty_override,
+      is_primary
+    } = req.body;
+    
+    // Validate that at least pattern or variant is provided
+    if (!pattern_id && !variant_id) {
+      return res.status(400).json({ error: 'Either pattern_id or variant_id must be provided' });
+    }
+    
+    const result = await pool.query(`
+      UPDATE problem_associations 
+      SET 
+        pattern_id = $1,
+        variant_id = $2,
+        concept_id = $3,
+        technique_id = $4,
+        goal_id = $5,
+        scenario_notes = $6,
+        application_notes = $7,
+        difficulty_override = $8,
+        is_primary = $9,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $10
+      RETURNING *
+    `, [
+      pattern_id, 
+      variant_id, 
+      concept_id, 
+      technique_id, 
+      goal_id,
+      scenario_notes,
+      application_notes,
+      difficulty_override,
+      is_primary,
+      id
+    ]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Association not found' });
+    }
+    
+    // Get the full association data with joined information
+    const fullResult = await pool.query(`
+      SELECT 
+        pa.*,
+        p.name as pattern_name,
+        v.name as variant_name,
+        c.name as concept_name,
+        t.name as technique_name,
+        g.name as goal_name
+      FROM problem_associations pa
+      LEFT JOIN patterns p ON pa.pattern_id = p.id
+      LEFT JOIN variants v ON pa.variant_id = v.id
+      LEFT JOIN concepts c ON pa.concept_id = c.id
+      LEFT JOIN techniques t ON pa.technique_id = t.id
+      LEFT JOIN goals g ON pa.goal_id = g.id
+      WHERE pa.id = $1
+    `, [id]);
+    
+    res.json(fullResult.rows[0]);
+  } catch (err) {
+    console.error('Error updating association:', err);
+    if (err.code === '23503') { // Foreign key violation
+      res.status(400).json({ error: 'Invalid reference to pattern, variant, concept, technique, or goal' });
+    } else {
+      res.status(500).json({ error: 'Failed to update association' });
+    }
+  }
+});
+
+// Delete association
+app.delete('/api/associations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      'DELETE FROM problem_associations WHERE id = $1 RETURNING *',
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Association not found' });
+    }
+    
+    res.json({ message: 'Association deleted successfully', deleted: result.rows[0] });
+  } catch (err) {
+    console.error('Error deleting association:', err);
+    res.status(500).json({ error: 'Failed to delete association' });
+  }
+});
+
+// Get variants filtered by pattern (for dynamic form dropdowns)
+app.get('/api/patterns/:id/variants-for-association', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(`
+      SELECT 
+        v.id,
+        v.name,
+        v.use_when,
+        v.notes,
+        v.technique_id,
+        v.goal_id,
+        v.concept_id,
+        t.name as technique_name,
+        g.name as goal_name,
+        c.name as concept_name
+      FROM variants v
+      LEFT JOIN techniques t ON v.technique_id = t.id
+      LEFT JOIN goals g ON v.goal_id = g.id
+      LEFT JOIN concepts c ON v.concept_id = c.id
+      WHERE v.pattern_id = $1
+      ORDER BY v.name
+    `, [id]);
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching variants for pattern:', err);
+    res.status(500).json({ error: 'Failed to fetch variants for pattern' });
+  }
+});
+
+// Get association summary for analytics
+app.get('/api/associations/summary', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total_associations,
+        COUNT(DISTINCT problem_id) as problems_with_associations,
+        COUNT(DISTINCT pattern_id) as unique_patterns_used,
+        COUNT(DISTINCT variant_id) as unique_variants_used,
+        COUNT(CASE WHEN is_primary = true THEN 1 END) as primary_associations
+      FROM problem_associations
+    `);
+    
+    const patternStats = await pool.query(`
+      SELECT 
+        p.name as pattern_name,
+        COUNT(pa.id) as usage_count
+      FROM patterns p
+      LEFT JOIN problem_associations pa ON p.id = pa.pattern_id
+      GROUP BY p.id, p.name
+      ORDER BY usage_count DESC
+      LIMIT 10
+    `);
+    
+    const variantStats = await pool.query(`
+      SELECT 
+        v.name as variant_name,
+        p.name as pattern_name,
+        COUNT(pa.id) as usage_count
+      FROM variants v
+      LEFT JOIN patterns p ON v.pattern_id = p.id
+      LEFT JOIN problem_associations pa ON v.id = pa.variant_id
+      GROUP BY v.id, v.name, p.name
+      ORDER BY usage_count DESC
+      LIMIT 10
+    `);
+    
+    res.json({
+      summary: result.rows[0],
+      top_patterns: patternStats.rows,
+      top_variants: variantStats.rows
+    });
+  } catch (err) {
+    console.error('Error fetching association summary:', err);
+    res.status(500).json({ error: 'Failed to fetch association summary' });
+  }
+});
+
 // Serve the main app
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));

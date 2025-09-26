@@ -63,8 +63,10 @@ const ProblemDetailView: React.FC<ProblemDetailViewProps> = ({ concept, problems
   return (
     <div className="problem-detail-view active">
       <div className="detail-header">
-        <button className="back-btn" onClick={onBack}>← Back to Concepts</button>
-        <h2 className="detailConceptTitle">{concept}</h2>
+        <div className="flex items-center gap-4">
+          <button className="back-btn" onClick={onBack}>← Back to Concepts</button>
+          <h2 className="detailConceptTitle">{concept}</h2>
+        </div>
         {/* Progress bar can be implemented here if needed */}
       </div>
       <div className="detail-content">

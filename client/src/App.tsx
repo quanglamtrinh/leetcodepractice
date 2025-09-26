@@ -23,6 +23,7 @@ const App: React.FC = () => {
   const [loadingDueToday, setLoadingDueToday] = useState(false);
   const [solvedProblems, setSolvedProblems] = useState<Problem[]>([]);
   const [loadingSolved, setLoadingSolved] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetch('/api/problems')
@@ -72,6 +73,16 @@ const App: React.FC = () => {
   }
   if (selectedConcept) {
     filteredProblems = filteredProblems.filter(p => p.concept === selectedConcept);
+  }
+  
+  // Apply search filter
+  if (searchQuery.trim()) {
+    const query = searchQuery.toLowerCase();
+    filteredProblems = filteredProblems.filter(p => 
+      p.title.toLowerCase().includes(query) ||
+      p.concept?.toLowerCase().includes(query) ||
+      p.difficulty.toLowerCase().includes(query)
+    );
   }
 
   const handleMenuSelect = (menu: string) => {
@@ -140,7 +151,35 @@ const App: React.FC = () => {
         onMenuSelect={handleMenuSelect}
       />
       <div className="main-content" style={{ flex: 1, padding: '2rem' }}>
-        <h1>LeetCode Practice</h1>
+        <div className="header-section">
+          <h1>LeetCode Practice</h1>
+          <div className="search-container">
+            <input
+              type="text"
+              placeholder="Search problems by title, concept, or difficulty..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="clear-search-btn"
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+        
+        {/* Search Results Counter */}
+        {searchQuery && (
+          <div className="search-results">
+            Found {filteredProblems.length} problem{filteredProblems.length !== 1 ? 's' : ''} matching "{searchQuery}"
+          </div>
+        )}
+        
         {view === 'pomodoro' ? (
           <div className="pomodoro-placeholder">Pomodoro Timer Coming Soon!</div>
         ) : view === 'solved' ? (
@@ -170,9 +209,9 @@ const App: React.FC = () => {
           ) : (
             <DueTodayFlashcards problems={dueTodayProblems} />
           )
-        ) : view === 'practice' && !selectedConcept ? (
+        ) : view === 'practice' && !selectedConcept && !searchQuery ? (
           <ConceptList problems={filteredProblems} onSelect={handleConceptSelect} />
-        ) : selectedConcept && selectedProblem ? (
+        ) : selectedConcept && selectedProblem && !searchQuery ? (
           <ProblemDetailView
             concept={selectedConcept}
             problems={filteredProblems}
@@ -183,6 +222,11 @@ const App: React.FC = () => {
           />
         ) : selectedConcept && filteredProblems.length === 0 ? (
           <div>No problems found for this concept.</div>
+        ) : searchQuery ? (
+          <>
+            <ProblemList problems={filteredProblems} onSelect={setSelectedProblem} />
+            {selectedProblem && <ProblemDetail problem={selectedProblem} />}
+          </>
         ) : (
           <>
             {selectedConcept && (

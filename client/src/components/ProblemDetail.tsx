@@ -3,6 +3,7 @@ import { Problem } from './ProblemList';
 import NotesTab from './NotesTab';
 import SolutionTab from './SolutionTab';
 import ReviewHistoryTab from './ReviewHistoryTab';
+import AddProblemsTab from './SimilarProblemsTab';
 
 interface ProblemDetailProps {
   problem: Problem;
@@ -11,7 +12,7 @@ interface ProblemDetailProps {
 }
 
 const ProblemDetail: React.FC<ProblemDetailProps> = ({ problem, onNotesSaved, onSolutionSaved }) => {
-  const [activeTab, setActiveTab] = useState<'notes' | 'solution' | 'review'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'solution' | 'review' | 'similar'>('notes');
 
   return (
     <div className="notes-panel">
@@ -31,6 +32,11 @@ const ProblemDetail: React.FC<ProblemDetailProps> = ({ problem, onNotesSaved, on
           data-tab="history"
           onClick={() => setActiveTab('review')}
         >📊 Review History</button>
+        <button
+          className={`tab-btn${activeTab === 'similar' ? ' active' : ''}`}
+          data-tab="similar"
+          onClick={() => setActiveTab('similar')}
+        >➕ Add Problems</button>
       </div>
       {/* Notes Tab */}
       <div className={`tab-content${activeTab === 'notes' ? ' active' : ''}`} id="notes-tab">
@@ -56,6 +62,13 @@ const ProblemDetail: React.FC<ProblemDetailProps> = ({ problem, onNotesSaved, on
           problemDifficulty={problem.difficulty}
           problemConcept={problem.concept}
         />
+      </div>
+      {/* Add Problems Tab */}
+      <div className={`tab-content${activeTab === 'similar' ? ' active' : ''}`} id="similar-tab">
+        <div className="notes-header">
+          <span>➕ Add Problems</span>
+        </div>
+        <AddProblemsTab problem={problem} />
       </div>
     </div>
   );
