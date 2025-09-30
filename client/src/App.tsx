@@ -7,6 +7,7 @@ import ProblemDetailView from './components/ProblemDetailView';
 import SolvedProblemsList from './components/SolvedProblemsList';
 import SolvedDetailView from './components/SolvedDetailView';
 import DueTodayFlashcards from './components/DueTodayFlashcards';
+import AddProblemForm from './components/AddProblemForm';
 import './styles.css';
 
 const MENU_KEYS = ['practice', 'solved', 'due-today', 'pomodoro'] as const;
@@ -24,6 +25,7 @@ const App: React.FC = () => {
   const [solvedProblems, setSolvedProblems] = useState<Problem[]>([]);
   const [loadingSolved, setLoadingSolved] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAddProblemForm, setShowAddProblemForm] = useState(false);
 
   useEffect(() => {
     fetch('/api/problems')
@@ -113,6 +115,42 @@ const App: React.FC = () => {
     setSolvedDetailOpen(true);
     setSolvedDetailProblem(problem);
   };
+
+  const handleNotesSaved = (problemId: number, notes: string) => {
+    // Update the problem in the problems array
+    setProblems(prevProblems => 
+      prevProblems.map(p => 
+        p.id === problemId ? { ...p, notes } : p
+      )
+    );
+    
+    // Update selectedProblem if it's the same problem
+    if (selectedProblem && selectedProblem.id === problemId) {
+      setSelectedProblem(prev => prev ? { ...prev, notes } : null);
+    }
+  };
+
+  const handleSolutionSaved = (problemId: number, solution: string) => {
+    // Update the problem in the problems array
+    setProblems(prevProblems => 
+      prevProblems.map(p => 
+        p.id === problemId ? { ...p, solution } : p
+      )
+    );
+    
+    // Update selectedProblem if it's the same problem
+    if (selectedProblem && selectedProblem.id === problemId) {
+      setSelectedProblem(prev => prev ? { ...prev, solution } : null);
+    }
+  };
+
+  const handleAddProblemSuccess = () => {
+    // Refresh the problems list
+    fetch('/api/problems')
+      .then(res => res.json())
+      .then(setProblems)
+      .catch(console.error);
+  };
   const handleCloseSolvedDetail = () => {
     setSolvedDetailOpen(false);
     setSolvedDetailProblem(null);
@@ -149,6 +187,7 @@ const App: React.FC = () => {
         dueToday={dueToday}
         activeMenu={view}
         onMenuSelect={handleMenuSelect}
+        onAddProblem={() => setShowAddProblemForm(true)}
       />
       <div className="main-content" style={{ flex: 1, padding: '2rem' }}>
         <div className="header-section">
@@ -219,14 +258,27 @@ const App: React.FC = () => {
             onSelectProblem={handleSelectProblem}
             onBack={handleBackToConcepts}
             onMarkAsSolved={markAsSolvedToggle}
+            onNotesSaved={handleNotesSaved}
+            onSolutionSaved={handleSolutionSaved}
           />
         ) : selectedConcept && filteredProblems.length === 0 ? (
           <div>No problems found for this concept.</div>
+        ) : searchQuery && selectedProblem ? (
+          <ProblemDetailView
+            concept={selectedProblem.concept}
+            problems={problems.filter(p => p.concept === selectedProblem.concept)}
+            selectedProblem={selectedProblem}
+            onSelectProblem={handleSelectProblem}
+            onBack={() => {
+              setSelectedProblem(null);
+              setSelectedConcept(null);
+            }}
+            onMarkAsSolved={markAsSolvedToggle}
+            onNotesSaved={handleNotesSaved}
+            onSolutionSaved={handleSolutionSaved}
+          />
         ) : searchQuery ? (
-          <>
-            <ProblemList problems={filteredProblems} onSelect={setSelectedProblem} />
-            {selectedProblem && <ProblemDetail problem={selectedProblem} />}
-          </>
+          <ProblemList problems={filteredProblems} onSelect={setSelectedProblem} />
         ) : (
           <>
             {selectedConcept && (
@@ -235,10 +287,24 @@ const App: React.FC = () => {
               </button>
             )}
             <ProblemList problems={filteredProblems} onSelect={setSelectedProblem} />
-            {selectedProblem && <ProblemDetail problem={selectedProblem} />}
+            {selectedProblem && (
+              <ProblemDetail 
+                problem={selectedProblem} 
+                onNotesSaved={handleNotesSaved}
+                onSolutionSaved={handleSolutionSaved}
+              />
+            )}
           </>
         )}
       </div>
+      
+      {/* Add Problem Form Modal */}
+      {showAddProblemForm && (
+        <AddProblemForm
+          onClose={() => setShowAddProblemForm(false)}
+          onSuccess={handleAddProblemSuccess}
+        />
+      )}
     </div>
   );
 };

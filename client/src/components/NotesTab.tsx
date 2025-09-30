@@ -44,17 +44,38 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
 
   // Load notes from problem object when problem changes
   useEffect(() => {
+    console.log('📝 NotesTab: Problem changed, ID:', problem.id, 'Title:', problem.title);
+    console.log('📝 NotesTab: Raw notes data:', problem.notes);
+    console.log('📝 NotesTab: Notes type:', typeof problem.notes);
+    
     if (problem.notes) {
       try {
-        const parsed = JSON.parse(problem.notes);
+        // Check if notes is already parsed (array) or needs parsing (string)
+        let parsed;
+        if (typeof problem.notes === 'string') {
+          parsed = JSON.parse(problem.notes);
+        } else if (Array.isArray(problem.notes)) {
+          parsed = problem.notes;
+        } else {
+          console.warn('📝 NotesTab: Unexpected notes type:', typeof problem.notes);
+          parsed = problem.notes;
+        }
+        
         if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].type) {
+          console.log('✅ NotesTab: Loading parsed notes:', parsed);
           setBlocks(parsed);
           blocksRef.current = parsed;
           setActiveBlock(parsed[0].id);
           return;
+        } else {
+          console.warn('📝 NotesTab: Parsed notes not in expected format:', parsed);
         }
-      } catch {}
+      } catch (error) {
+        console.error('❌ NotesTab: Error parsing notes:', error);
+      }
     }
+    
+    console.log('📝 NotesTab: Using default blocks');
     const defaultBlocks = [{ id: 1, type: 'text', content: '', placeholder: 'Type "/" for commands' }];
     setBlocks(defaultBlocks);
     blocksRef.current = defaultBlocks;
@@ -181,107 +202,186 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     }, 0);
   };
 
+  const moveBlockUp = useCallback((blockId: number) => {
+    setBlocks(prevBlocks => {
+      const currentIndex = prevBlocks.findIndex(b => b.id === blockId);
+      if (currentIndex > 0) {
+        const updated = [...prevBlocks];
+        [updated[currentIndex - 1], updated[currentIndex]] = [updated[currentIndex], updated[currentIndex - 1]];
+        blocksRef.current = updated;
+        // Trigger debounced save
+        debouncedSave();
+        return updated;
+      }
+      return prevBlocks;
+    });
+  }, []);
+
+  const deleteBlock = useCallback((blockId: number) => {
+    setBlocks(prevBlocks => {
+      if (prevBlocks.length > 1) {
+        const updated = prevBlocks.filter(block => block.id !== blockId);
+        blocksRef.current = updated;
+        
+        // Trigger debounced save
+        debouncedSave();
+        
+        // Set active block to the previous one or next one
+        const deletedIndex = prevBlocks.findIndex(b => b.id === blockId);
+        const newActiveBlock = updated[Math.max(0, deletedIndex - 1)];
+        if (newActiveBlock) {
+          setActiveBlock(newActiveBlock.id);
+          setTimeout(() => {
+            const textarea = textareaRefs.current[newActiveBlock.id];
+            if (textarea) textarea.focus();
+          }, 0);
+        }
+        
+        return updated;
+      }
+      return prevBlocks;
+    });
+  }, []);
+
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>, blockId: number) => {
+    console.log('📋 handlePaste called:', { blockId });
     const clipboardData = e.clipboardData;
     const htmlData = clipboardData.getData('text/html');
     const textData = clipboardData.getData('text/plain');
     
+    console.log('📋 Clipboard data:', { htmlData: !!htmlData, textData, textLength: textData?.length });
+    
     // Only handle multi-line content or HTML content
     if (htmlData || (textData && textData.includes('\n'))) {
+      console.log('📋 Preventing default and handling paste');
       e.preventDefault();
       
       if (htmlData) {
+        console.log('📋 Processing HTML data:', htmlData.substring(0, 100) + '...');
         // Parse HTML content and convert to blocks
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlData, 'text/html');
         const parsedBlocks = parseHtmlToBlocks(doc.body);
         
+        console.log('📋 Parsed blocks from HTML:', parsedBlocks);
+        
         if (parsedBlocks.length > 0) {
-          const currentIndex = blocks.findIndex(b => b.id === blockId);
-          if (currentIndex !== -1) {
-            const newBlocks = [...blocks];
+          setBlocks(currentBlocks => {
+            console.log('📋 Current blocks before HTML paste:', currentBlocks);
+            const currentIndex = currentBlocks.findIndex(b => b.id === blockId);
+            console.log('📋 Current index for block', blockId, ':', currentIndex);
             
-            // Replace current block with first parsed block
-            newBlocks[currentIndex] = parsedBlocks[0];
-            
-            // Add remaining blocks after current one
-            for (let i = 1; i < parsedBlocks.length; i++) {
-              newBlocks.splice(currentIndex + i, 0, parsedBlocks[i]);
-            }
-            
-            setBlocks(prevBlocks => {
+            if (currentIndex !== -1) {
+              const newBlocks = [...currentBlocks];
+              const currentBlock = currentBlocks[currentIndex];
+              
+              // Preserve the current block's type for the first parsed block
+              const firstParsedBlock = {
+                ...parsedBlocks[0],
+                type: currentBlock.type, // Keep the current block's type
+                placeholder: currentBlock.placeholder // Keep the current block's placeholder
+              };
+              
+              // Replace current block with first parsed block (preserving type)
+              newBlocks[currentIndex] = firstParsedBlock;
+              
+              // Add remaining blocks after current one (these can keep their default 'text' type)
+              for (let i = 1; i < parsedBlocks.length; i++) {
+                newBlocks.splice(currentIndex + i, 0, parsedBlocks[i]);
+              }
+              
+              console.log('📋 New blocks after HTML paste:', newBlocks);
               blocksRef.current = newBlocks;
               debouncedSave();
+              
+              // Focus the last added block
+              const lastBlock = parsedBlocks[parsedBlocks.length - 1];
+              setActiveBlock(lastBlock.id);
+              setTimeout(() => {
+                const textarea = textareaRefs.current[lastBlock.id];
+                if (textarea) {
+                  textarea.focus();
+                  textarea.setSelectionRange(lastBlock.content.length, lastBlock.content.length);
+                }
+              }, 0);
+              
               return newBlocks;
-            });
-            
-            // Focus the last added block
-            const lastBlock = parsedBlocks[parsedBlocks.length - 1];
-            setActiveBlock(lastBlock.id);
-            setTimeout(() => {
-              const textarea = textareaRefs.current[lastBlock.id];
-              if (textarea) {
-                textarea.focus();
-                textarea.setSelectionRange(lastBlock.content.length, lastBlock.content.length);
-              }
-            }, 0);
-          }
+            }
+            return currentBlocks;
+          });
         }
       } else if (textData && textData.includes('\n')) {
+        console.log('📋 Processing multi-line text data:', textData);
         // Handle plain text with multiple lines
         const lines = textData.split('\n').filter(line => line.trim() !== '');
+        console.log('📋 Split lines:', lines);
+        
         if (lines.length > 1) {
-          const currentIndex = blocks.findIndex(b => b.id === blockId);
-          if (currentIndex !== -1) {
-            const newBlocks = [...blocks];
+          setBlocks(currentBlocks => {
+            console.log('📋 Current blocks before text paste:', currentBlocks);
+            const currentIndex = currentBlocks.findIndex(b => b.id === blockId);
+            console.log('📋 Current index for block', blockId, ':', currentIndex);
             
-            // Replace current block with first line
-            newBlocks[currentIndex] = {
-              ...newBlocks[currentIndex],
-              content: lines[0]
-            };
-            
-            // Add remaining lines as new blocks
-            for (let i = 1; i < lines.length; i++) {
-              const newBlockId = Math.max(...blocks.map(b => b.id)) + i;
-              newBlocks.splice(currentIndex + i, 0, {
-                id: newBlockId,
-                type: 'text',
-                content: lines[i],
-                placeholder: 'Type something...'
-              });
-            }
-            
-            setBlocks(prevBlocks => {
+            if (currentIndex !== -1) {
+              const newBlocks = [...currentBlocks];
+              const currentBlock = currentBlocks[currentIndex];
+              
+              // Replace current block with first line (preserving type and placeholder)
+              newBlocks[currentIndex] = {
+                ...currentBlock,
+                content: lines[0]
+              };
+              
+              // Add remaining lines as new blocks (these can keep their default 'text' type)
+              for (let i = 1; i < lines.length; i++) {
+                const newBlockId = Math.max(...currentBlocks.map(b => b.id)) + i;
+                newBlocks.splice(currentIndex + i, 0, {
+                  id: newBlockId,
+                  type: 'text',
+                  content: lines[i],
+                  placeholder: 'Type something...'
+                });
+              }
+              
+              console.log('📋 New blocks after text paste:', newBlocks);
               blocksRef.current = newBlocks;
               debouncedSave();
+              
+              // Focus the last added block
+              const lastBlockId = newBlocks[currentIndex + lines.length - 1].id;
+              setActiveBlock(lastBlockId);
+              setTimeout(() => {
+                const textarea = textareaRefs.current[lastBlockId];
+                if (textarea) {
+                  textarea.focus();
+                  textarea.setSelectionRange(lines[lines.length - 1].length, lines[lines.length - 1].length);
+                }
+              }, 0);
+              
               return newBlocks;
-            });
-            
-            // Focus the last added block
-            const lastBlockId = newBlocks[currentIndex + lines.length - 1].id;
-            setActiveBlock(lastBlockId);
-            setTimeout(() => {
-              const textarea = textareaRefs.current[lastBlockId];
-              if (textarea) {
-                textarea.focus();
-                textarea.setSelectionRange(lines[lines.length - 1].length, lines[lines.length - 1].length);
-              }
-            }, 0);
-          }
+            }
+            return currentBlocks;
+          });
+        } else {
+          console.log('📋 Single line or empty lines, not processing');
         }
       }
+    } else {
+      console.log('📋 Single-line text or no special handling needed, allowing default paste behavior');
     }
     // For single-line text, let the default paste behavior handle it
-  }, [blocks, debouncedSave]);
+  }, []);
 
   const parseHtmlToBlocks = (element: HTMLElement): Block[] => {
+    console.log('📋 parseHtmlToBlocks called with element:', element);
+    console.log('📋 blocksRef.current:', blocksRef.current);
     const parsedBlocks: Block[] = [];
-    let blockId = Math.max(...blocks.map(b => b.id)) + 1;
+    let blockId = Math.max(...blocksRef.current.map(b => b.id)) + 1;
+    console.log('📋 Starting blockId:', blockId);
     
-    const processElement = (el: HTMLElement) => {
+    const processElement = (el: HTMLElement | Node) => {
       if (el.nodeType === Node.ELEMENT_NODE) {
-        const tagName = el.tagName.toLowerCase();
+        const tagName = (el as HTMLElement).tagName.toLowerCase();
         
         // Handle specific elements first
         switch (tagName) {
@@ -305,8 +405,8 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
           case 'ul':
           case 'ol': {
             // Handle lists - create bullet blocks for each li
-            const listItems = el.querySelectorAll('li');
-            listItems.forEach(li => {
+            const listItems = (el as HTMLElement).querySelectorAll('li');
+            listItems.forEach((li: Element) => {
               const textContent = li.textContent?.trim() || '';
               if (textContent) {
                 parsedBlocks.push({
@@ -361,23 +461,43 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
           }
           case 'div': {
             // Process div children but don't create a block for the div itself
-            Array.from(el.children).forEach(child => {
+            Array.from((el as HTMLElement).children).forEach(child => {
               processElement(child as HTMLElement);
+            });
+            return;
+          }
+          case 'body': {
+            // For body element, process all child nodes (including text nodes)
+            Array.from(el.childNodes).forEach(child => {
+              processElement(child);
             });
             return;
           }
           default: {
             // For other elements, process their children
-            Array.from(el.children).forEach(child => {
+            Array.from((el as HTMLElement).children).forEach(child => {
               processElement(child as HTMLElement);
             });
             return;
           }
         }
+      } else if (el.nodeType === Node.TEXT_NODE) {
+        // Handle text nodes
+        const textContent = el.textContent?.trim();
+        if (textContent) {
+          console.log('📋 Processing text node:', textContent);
+          parsedBlocks.push({
+            id: blockId++,
+            type: 'text',
+            content: textContent,
+            placeholder: 'Type something...'
+          });
+        }
       }
     };
     
     processElement(element);
+    console.log('📋 parseHtmlToBlocks returning:', parsedBlocks);
     return parsedBlocks;
   };
 
@@ -747,6 +867,22 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     }
   }, [showMenu.show, showMenu.blockId]);
 
+  // Auto-resize textareas when blocks change
+  useEffect(() => {
+    Object.values(textareaRefs.current).forEach(textarea => {
+      if (textarea) {
+        textarea.style.height = 'auto';
+        // Find the block type to determine min height
+        const blockId = Object.keys(textareaRefs.current).find(id => 
+          textareaRefs.current[parseInt(id)] === textarea
+        );
+        const block = blocks.find(b => b.id === parseInt(blockId || '0'));
+        const minHeight = block?.type === 'heading' ? 30 : 24;
+        textarea.style.height = `${Math.max(textarea.scrollHeight, minHeight)}px`;
+      }
+    });
+  }, [blocks]);
+
   const renderCodeBlock = (block: Block) => {
     return (
       <div key={block.id} className="relative group mb-2">
@@ -854,22 +990,38 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
               ref={el => { textareaRefs.current[block.id] = el; }}
               value={block.content}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange(block.id, e.target.value)}
-              onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => handleKeyDown(e, block.id)}
               onFocus={() => setActiveBlock(block.id)}
               placeholder={block.placeholder}
               className={`${baseClasses} ${typeClasses[block.type]} placeholder-gray-400`}
-              rows={block.type === 'heading' ? 1 : 1}
+              rows={1}
               style={{
-                minHeight: block.type === 'heading' ? '30px' : '1.5rem',
+                minHeight: block.type === 'heading' ? '30px' : '24px',
                 height: 'auto',
-                resize: 'none'
+                resize: 'none',
+                overflow: 'hidden'
               }}
               onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
                 const target = e.target as HTMLTextAreaElement;
+                // Reset height to auto to get the correct scrollHeight
                 target.style.height = 'auto';
-                target.style.height = target.scrollHeight + 'px';
+                // Set height to scrollHeight to fit content, with a minimum height
+                const minHeight = block.type === 'heading' ? 30 : 24;
+                target.style.height = `${Math.max(target.scrollHeight, minHeight)}px`;
               }}
-              onPaste={(e: React.ClipboardEvent<HTMLTextAreaElement>) => handlePaste(e, block.id)}
+              onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                handleKeyDown(e, block.id);
+                // Also handle auto-resize on key events
+                const target = e.target as HTMLTextAreaElement;
+                setTimeout(() => {
+                  target.style.height = 'auto';
+                  const minHeight = block.type === 'heading' ? 30 : 24;
+                  target.style.height = `${Math.max(target.scrollHeight, minHeight)}px`;
+                }, 0);
+              }}
+              onPaste={(e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+                console.log('📋 onPaste event triggered for block:', block.id);
+                handlePaste(e, block.id);
+              }}
             />
             {showMenu.show && showMenu.blockId === block.id && (
               <div
@@ -908,6 +1060,29 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
                 ))}
               </div>
             )}
+          </div>
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+            <button
+              onClick={() => moveBlockUp(block.id)}
+              className="p-1 hover:bg-gray-100 rounded"
+              title="Move up"
+            >
+              ↑
+            </button>
+            <button
+              onClick={() => moveBlockDown(block.id)}
+              className="p-1 hover:bg-gray-100 rounded"
+              title="Move down"
+            >
+              ↓
+            </button>
+            <button
+              onClick={() => deleteBlock(block.id)}
+              className="p-1 hover:bg-gray-100 rounded text-red-500"
+              title="Delete"
+            >
+              ×
+            </button>
           </div>
         </div>
       </div>

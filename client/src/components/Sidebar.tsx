@@ -7,9 +7,10 @@ interface SidebarProps {
   dueToday: number;
   activeMenu: string;
   onMenuSelect: (menu: string) => void;
+  onAddProblem: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ easy, medium, hard, dueToday, activeMenu, onMenuSelect }) => (
+const Sidebar: React.FC<SidebarProps> = ({ easy, medium, hard, dueToday, activeMenu, onMenuSelect, onAddProblem }) => (
   <div className="sidebar" id="sidebar">
     <div className="menu-header" id="menuToggle">
       <span>Menu</span>
@@ -32,6 +33,10 @@ const Sidebar: React.FC<SidebarProps> = ({ easy, medium, hard, dueToday, activeM
       <div className={`menu-item${activeMenu === 'pomodoro' ? ' active' : ''}`} id="menu-pomodoro" onClick={() => onMenuSelect('pomodoro')}>
         <div className="icon"></div>
         <span>Pomodoro Timer</span>
+      </div>
+      <div className="menu-item" onClick={onAddProblem} style={{ backgroundColor: '#e3f2fd', border: '1px solid #2196f3' }}>
+        <div className="icon" style={{ background: '#2196f3' }}>+</div>
+        <span style={{ color: '#1976d2', fontWeight: '500' }}>Add Problem</span>
       </div>
       <div className="stats-section">
         <div className="stats-title"><span>Stats</span></div>

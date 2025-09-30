@@ -165,7 +165,7 @@ app.put('/api/problems/:id/progress', async (req, res) => {
       }
 
       // Add initial review session using the comprehensive schema function
-      await pool.query(`
+        await pool.query(`
         SELECT add_review_session($1, 'remembered', $2, NULL)
       `, [id, notes || 'Initial solve']);
 
@@ -198,6 +198,31 @@ app.put('/api/problems/:id/progress', async (req, res) => {
   } catch (err) {
     console.error('Error updating progress:', err);
     res.status(500).json({ error: 'Failed to update progress' });
+  }
+});
+
+// Update problem solution content (for advanced editor)
+app.put('/api/problems/:id/solution', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { solution } = req.body;
+    
+    const result = await pool.query(`
+      UPDATE problems 
+      SET solution = $1,
+          updated_at = CURRENT_TIMESTAMP 
+      WHERE id = $2 
+      RETURNING *
+    `, [solution, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating solution:', err);
+    res.status(500).json({ error: 'Failed to update solution' });
   }
 });
 
@@ -1637,6 +1662,452 @@ app.get('/api/associations/summary', async (req, res) => {
   } catch (err) {
     console.error('Error fetching association summary:', err);
     res.status(500).json({ error: 'Failed to fetch association summary' });
+  }
+});
+
+// Get similar problems for a specific problem
+app.get('/api/problems/:id/similar', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(`
+      SELECT similar_problems 
+      FROM problems 
+      WHERE id = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    const similarProblemIds = result.rows[0].similar_problems || [];
+    
+    if (similarProblemIds.length === 0) {
+      return res.json([]);
+    }
+
+    // Get the actual problem details for similar problems
+    const similarProblems = await pool.query(`
+      SELECT id, problem_id, title, concept, difficulty, acceptance_rate, popularity, solved, leetcode_link, notes, solution
+      FROM problems 
+      WHERE id = ANY($1)
+      ORDER BY popularity DESC NULLS LAST, id ASC
+    `, [similarProblemIds]);
+
+    res.json(similarProblems.rows);
+  } catch (err) {
+    console.error('Error fetching similar problems:', err);
+    res.status(500).json({ error: 'Failed to fetch similar problems' });
+  }
+});
+
+// Add a problem to similar problems list
+app.post('/api/problems/:id/similar', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { similarProblemId } = req.body;
+    
+    if (!similarProblemId) {
+      return res.status(400).json({ error: 'similarProblemId is required' });
+    }
+
+    // Check if the problem exists
+    const problemCheck = await pool.query(`
+      SELECT id FROM problems WHERE id = $1
+    `, [id]);
+
+    if (problemCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    // Check if the similar problem exists
+    const similarProblemCheck = await pool.query(`
+      SELECT id FROM problems WHERE id = $1
+    `, [similarProblemId]);
+
+    if (similarProblemCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Similar problem not found' });
+    }
+
+    // Add the similar problem ID to the array (avoid duplicates)
+    const result = await pool.query(`
+      UPDATE problems 
+      SET similar_problems = array_append(similar_problems, $1),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2 
+        AND NOT ($1 = ANY(similar_problems))
+      RETURNING similar_problems
+    `, [similarProblemId, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Problem is already in similar problems list' });
+    }
+
+    res.json({ 
+      message: 'Similar problem added successfully',
+      similar_problems: result.rows[0].similar_problems
+    });
+  } catch (err) {
+    console.error('Error adding similar problem:', err);
+    res.status(500).json({ error: 'Failed to add similar problem' });
+  }
+});
+
+// Remove a problem from similar problems list
+app.delete('/api/problems/:id/similar/:similarId', async (req, res) => {
+  try {
+    const { id, similarId } = req.params;
+    
+    const result = await pool.query(`
+      UPDATE problems 
+      SET similar_problems = array_remove(similar_problems, $1),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING similar_problems
+    `, [similarId, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    res.json({ 
+      message: 'Similar problem removed successfully',
+      similar_problems: result.rows[0].similar_problems
+    });
+  } catch (err) {
+    console.error('Error removing similar problem:', err);
+    res.status(500).json({ error: 'Failed to remove similar problem' });
+  }
+});
+
+// Update similar problems list (replace entire array)
+app.put('/api/problems/:id/similar', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { similarProblems } = req.body;
+    
+    if (!Array.isArray(similarProblems)) {
+      return res.status(400).json({ error: 'similarProblems must be an array' });
+    }
+
+    // Validate that all similar problem IDs exist
+    if (similarProblems.length > 0) {
+      const validationResult = await pool.query(`
+        SELECT id FROM problems WHERE id = ANY($1)
+      `, [similarProblems]);
+      
+      if (validationResult.rows.length !== similarProblems.length) {
+        return res.status(400).json({ error: 'One or more similar problem IDs do not exist' });
+      }
+    }
+
+    const result = await pool.query(`
+      UPDATE problems 
+      SET similar_problems = $1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING similar_problems
+    `, [similarProblems, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    res.json({ 
+      message: 'Similar problems updated successfully',
+      similar_problems: result.rows[0].similar_problems
+    });
+  } catch (err) {
+    console.error('Error updating similar problems:', err);
+    res.status(500).json({ error: 'Failed to update similar problems' });
+  }
+});
+
+// Add similar problems with bilateral transitive closure
+app.post('/api/problems/:id/similar/transitive', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { similarProblemId } = req.body;
+    
+    if (!similarProblemId) {
+      return res.status(400).json({ error: 'similarProblemId is required' });
+    }
+
+    // Check if both problems exist
+    const problemCheck = await pool.query(`
+      SELECT id, similar_problems FROM problems WHERE id = $1
+    `, [id]);
+
+    if (problemCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    const similarProblemCheck = await pool.query(`
+      SELECT id, similar_problems FROM problems WHERE id = $1
+    `, [similarProblemId]);
+
+    if (similarProblemCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Similar problem not found' });
+    }
+
+    const problem1 = problemCheck.rows[0];
+    const problem2 = similarProblemCheck.rows[0];
+
+    // Get all current similar problems for both problems
+    const problem1Similar = problem1.similar_problems || [];
+    const problem2Similar = problem2.similar_problems || [];
+
+    // Create sets to avoid duplicates
+    const problem1NewSimilar = new Set([...problem1Similar, similarProblemId]);
+    const problem2NewSimilar = new Set([...problem2Similar, id]);
+
+    // Add transitive relationships
+    // Add all of problem2's similar problems to problem1 (except problem1 itself)
+    problem2Similar.forEach(similarId => {
+      if (similarId !== id) {
+        problem1NewSimilar.add(similarId);
+      }
+    });
+
+    // Add all of problem1's similar problems to problem2 (except problem2 itself)
+    problem1Similar.forEach(similarId => {
+      if (similarId !== similarProblemId) {
+        problem2NewSimilar.add(similarId);
+      }
+    });
+
+    // For each of problem2's similar problems, add problem1 to their similar list
+    for (const similarId of problem2Similar) {
+      if (similarId !== id) {
+        await pool.query(`
+          UPDATE problems 
+          SET similar_problems = array_append(similar_problems, $1),
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2 
+            AND NOT ($1 = ANY(similar_problems))
+        `, [id, similarId]);
+      }
+    }
+
+    // For each of problem1's similar problems, add problem2 to their similar list
+    for (const similarId of problem1Similar) {
+      if (similarId !== similarProblemId) {
+        await pool.query(`
+          UPDATE problems 
+          SET similar_problems = array_append(similar_problems, $1),
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2 
+            AND NOT ($1 = ANY(similar_problems))
+        `, [similarProblemId, similarId]);
+      }
+    }
+
+    // Update problem1 with all its new similar problems
+    const problem1Result = await pool.query(`
+      UPDATE problems 
+      SET similar_problems = $1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING similar_problems
+    `, [Array.from(problem1NewSimilar), id]);
+
+    // Update problem2 with all its new similar problems
+    const problem2Result = await pool.query(`
+      UPDATE problems 
+      SET similar_problems = $1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING similar_problems
+    `, [Array.from(problem2NewSimilar), similarProblemId]);
+
+    res.json({ 
+      message: 'Similar problems added with transitive closure successfully',
+      problem1_similar_problems: problem1Result.rows[0].similar_problems,
+      problem2_similar_problems: problem2Result.rows[0].similar_problems,
+      added_relationships: {
+        problem1_id: id,
+        problem2_id: similarProblemId,
+        transitive_additions: {
+          to_problem1: problem2Similar.filter(id => id !== id),
+          to_problem2: problem1Similar.filter(id => id !== similarProblemId)
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Error adding similar problems with transitive closure:', err);
+    res.status(500).json({ error: 'Failed to add similar problems with transitive closure' });
+  }
+});
+
+// Remove similar problems with bilateral transitive closure
+app.delete('/api/problems/:id/similar/transitive/:similarId', async (req, res) => {
+  try {
+    const { id, similarId } = req.params;
+    
+    // Check if both problems exist
+    const problemCheck = await pool.query(`
+      SELECT id, similar_problems FROM problems WHERE id = $1
+    `, [id]);
+
+    if (problemCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    const similarProblemCheck = await pool.query(`
+      SELECT id, similar_problems FROM problems WHERE id = $1
+    `, [similarId]);
+
+    if (similarProblemCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Similar problem not found' });
+    }
+
+    const problem1 = problemCheck.rows[0];
+    const problem2 = similarProblemCheck.rows[0];
+
+    // Get all current similar problems for both problems
+    const problem1Similar = problem1.similar_problems || [];
+    const problem2Similar = problem2.similar_problems || [];
+
+    // Check if the relationship exists
+    if (!problem1Similar.includes(parseInt(similarId)) || !problem2Similar.includes(parseInt(id))) {
+      return res.status(400).json({ error: 'Similar relationship does not exist' });
+    }
+
+    // Find common similar problems between the two problems
+    const commonSimilar = problem1Similar.filter(id1 => 
+      problem2Similar.includes(id1) && id1 !== parseInt(id) && id1 !== parseInt(similarId)
+    );
+
+    // Remove the direct relationship
+    const problem1NewSimilar = problem1Similar.filter(id1 => id1 !== parseInt(similarId));
+    const problem2NewSimilar = problem2Similar.filter(id2 => id2 !== parseInt(id));
+
+    // For each common similar problem, remove the other problem from their similar list
+    // This breaks the transitive relationship
+    for (const commonId of commonSimilar) {
+      // Remove problem1 from commonId's similar list
+      await pool.query(`
+        UPDATE problems 
+        SET similar_problems = array_remove(similar_problems, $1),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [id, commonId]);
+
+      // Remove problem2 from commonId's similar list
+      await pool.query(`
+        UPDATE problems 
+        SET similar_problems = array_remove(similar_problems, $1),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [similarId, commonId]);
+    }
+
+    // Update problem1 with its new similar problems (without the removed one)
+    const problem1Result = await pool.query(`
+      UPDATE problems 
+      SET similar_problems = $1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING similar_problems
+    `, [problem1NewSimilar, id]);
+
+    // Update problem2 with its new similar problems (without the removed one)
+    const problem2Result = await pool.query(`
+      UPDATE problems 
+      SET similar_problems = $1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING similar_problems
+    `, [problem2NewSimilar, similarId]);
+
+    res.json({ 
+      message: 'Similar problems removed with transitive closure successfully',
+      problem1_similar_problems: problem1Result.rows[0].similar_problems,
+      problem2_similar_problems: problem2Result.rows[0].similar_problems,
+      removed_relationships: {
+        problem1_id: id,
+        problem2_id: similarId,
+        transitive_removals: {
+          common_similar_problems: commonSimilar,
+          removed_from_common: commonSimilar.map(commonId => ({
+            problem_id: commonId,
+            removed_problem1: id,
+            removed_problem2: similarId
+          }))
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Error removing similar problems with transitive closure:', err);
+    res.status(500).json({ error: 'Failed to remove similar problems with transitive closure' });
+  }
+});
+
+// Add a new problem
+app.post('/api/problems', async (req, res) => {
+  try {
+    const { 
+      problem_id, 
+      title, 
+      concept, 
+      concept_id, 
+      difficulty, 
+      acceptance_rate, 
+      popularity, 
+      leetcode_link 
+    } = req.body;
+
+    // Validate required fields
+    if (!title || !concept || !difficulty) {
+      return res.status(400).json({ error: 'Title, concept, and difficulty are required' });
+    }
+
+    // Validate difficulty
+    if (!['easy', 'medium', 'hard'].includes(difficulty.toLowerCase())) {
+      return res.status(400).json({ error: 'Difficulty must be easy, medium, or hard' });
+    }
+
+    // Check if problem with same title already exists
+    const existingProblem = await pool.query(
+      'SELECT id FROM problems WHERE title = $1',
+      [title]
+    );
+
+    if (existingProblem.rows.length > 0) {
+      return res.status(400).json({ error: 'A problem with this title already exists' });
+    }
+
+    // Insert the new problem
+    const result = await pool.query(`
+      INSERT INTO problems (
+        problem_id, title, concept, concept_id, difficulty, 
+        acceptance_rate, popularity, leetcode_link, solved, 
+        notes, solution, similar_problems, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING *
+    `, [
+      problem_id || null,
+      title,
+      concept,
+      concept_id || concept.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+      difficulty.toLowerCase(),
+      acceptance_rate || null,
+      popularity || null,
+      leetcode_link || null,
+      false, // solved
+      null, // notes
+      null, // solution
+      '{}' // similar_problems (empty array)
+    ]);
+
+    res.status(201).json({
+      message: 'Problem added successfully',
+      problem: result.rows[0]
+    });
+
+  } catch (err) {
+    console.error('Error adding problem:', err);
+    res.status(500).json({ error: 'Failed to add problem' });
   }
 });
 

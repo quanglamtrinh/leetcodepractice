@@ -116,7 +116,8 @@ CREATE TABLE problems (
     solved BOOLEAN DEFAULT FALSE,
     notes TEXT,
     leetcode_link TEXT,
-    solution BIGINT,
+    solution TEXT,
+    similar_problems BIGINT[] DEFAULT '{}', -- Array of problem IDs for similar problems
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -194,6 +195,7 @@ CREATE TABLE mistakes (
 CREATE INDEX idx_problems_difficulty ON problems(difficulty);
 CREATE INDEX idx_problems_solved ON problems(solved);
 CREATE INDEX idx_problems_problem_id ON problems(problem_id);
+CREATE INDEX idx_problems_similar_problems ON problems USING GIN(similar_problems);
 CREATE INDEX idx_review_history_problem_id ON review_history(problem_id);
 CREATE INDEX idx_review_history_review_date ON review_history(review_date);
 CREATE INDEX idx_review_history_next_review_date ON review_history(next_review_date);

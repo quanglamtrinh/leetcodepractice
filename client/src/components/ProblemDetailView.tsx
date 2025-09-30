@@ -17,6 +17,8 @@ interface ProblemDetailViewProps {
   onSelectProblem: (problem: Problem) => void;
   onBack: () => void;
   onMarkAsSolved: (problemId: number) => Promise<void>;
+  onNotesSaved?: (problemId: number, notes: string) => void;
+  onSolutionSaved?: (problemId: number, solution: string) => void;
 }
 
 const SORT_OPTIONS = [
@@ -29,12 +31,20 @@ const SORT_OPTIONS = [
 
 type SortKey = 'popularity' | 'difficulty' | 'acceptance' | 'solved' | 'unsolved';
 
-const ProblemDetailView: React.FC<ProblemDetailViewProps> = ({ concept, problems, selectedProblem, onSelectProblem, onBack, onMarkAsSolved }) => {
+const ProblemDetailView: React.FC<ProblemDetailViewProps> = ({ concept, problems, selectedProblem, onSelectProblem, onBack, onMarkAsSolved, onNotesSaved, onSolutionSaved }) => {
   const [sortKey, setSortKey] = useState<SortKey>('popularity');
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Sorting logic
-  const sortedProblems = [...problems as Problem[]].sort((a, b) => {
+  // Filter and sort problems
+  const filteredProblems = problems.filter(problem => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return problem.title.toLowerCase().includes(query) ||
+           problem.difficulty.toLowerCase().includes(query);
+  });
+
+  const sortedProblems = [...filteredProblems as Problem[]].sort((a, b) => {
     if (sortKey === 'popularity') {
       return (b.popularity || 0) - (a.popularity || 0);
     } else if (sortKey === 'acceptance') {
@@ -100,8 +110,49 @@ const ProblemDetailView: React.FC<ProblemDetailViewProps> = ({ concept, problems
               </div>
             </div>
           </div>
+          
+          {/* Search Bar */}
+          <div className="mb-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Search problems in this concept..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input"
+                style={{ width: '100%' }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="clear-search-btn"
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+          
           <div className="space-y-2" id="detailProblemList">
-            {sortedProblems.map(problem => {
+            {sortedProblems.length === 0 ? (
+              <div className="no-results text-center py-8 text-gray-500">
+                {searchQuery ? (
+                  <>
+                    <p>No problems found matching "{searchQuery}"</p>
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="mt-2 text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Clear search
+                    </button>
+                  </>
+                ) : (
+                  <p>No problems available</p>
+                )}
+              </div>
+            ) : (
+              sortedProblems.map(problem => {
               const difficulty = problem.difficulty.toLowerCase();
               const difficultyBadgeClass =
                 difficulty === 'hard'
@@ -123,7 +174,8 @@ const ProblemDetailView: React.FC<ProblemDetailViewProps> = ({ concept, problems
                   </div>
                 </div>
               );
-            })}
+              })
+            )}
           </div>
         </div>
         {/* Right: Code/Notes Panel */}
@@ -147,14 +199,9 @@ const ProblemDetailView: React.FC<ProblemDetailViewProps> = ({ concept, problems
           <div className="notes-panel">
             <ProblemDetail 
               problem={selectedProblem} 
-              onNotesSaved={(problemId, notes) => {
-                // Update the selected problem in memory
-                selectedProblem.notes = notes;
-              }}
-              onSolutionSaved={(problemId, solution) => {
-                // Update the selected problem in memory
-                selectedProblem.solution = solution;
-              }}
+              onNotesSaved={onNotesSaved}
+              onSolutionSaved={onSolutionSaved}
+              onSelectProblem={onSelectProblem}
             />
           </div>
         </div>

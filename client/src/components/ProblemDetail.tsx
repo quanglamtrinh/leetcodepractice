@@ -9,9 +9,10 @@ interface ProblemDetailProps {
   problem: Problem;
   onNotesSaved?: (problemId: number, notes: string) => void;
   onSolutionSaved?: (problemId: number, solution: string) => void;
+  onSelectProblem?: (problem: Problem) => void;
 }
 
-const ProblemDetail: React.FC<ProblemDetailProps> = ({ problem, onNotesSaved, onSolutionSaved }) => {
+const ProblemDetail: React.FC<ProblemDetailProps> = ({ problem, onNotesSaved, onSolutionSaved, onSelectProblem }) => {
   const [activeTab, setActiveTab] = useState<'notes' | 'solution' | 'review' | 'similar'>('notes');
 
   return (
@@ -36,22 +37,14 @@ const ProblemDetail: React.FC<ProblemDetailProps> = ({ problem, onNotesSaved, on
           className={`tab-btn${activeTab === 'similar' ? ' active' : ''}`}
           data-tab="similar"
           onClick={() => setActiveTab('similar')}
-        >➕ Add Problems</button>
+        >Similar Problems</button>
       </div>
       {/* Notes Tab */}
       <div className={`tab-content${activeTab === 'notes' ? ' active' : ''}`} id="notes-tab">
-        <div className="notes-header">
-          <span>📝 Notes</span>
-          <span id="notesStatus" className="notes-status"></span>
-        </div>
         <NotesTab problem={problem} onNotesSaved={onNotesSaved} />
       </div>
       {/* Solution Tab */}
       <div className={`tab-content${activeTab === 'solution' ? ' active' : ''}`} id="solution-tab">
-        <div className="notes-header">
-          <span>💻 Solution</span>
-          <span id="solutionStatus" className="notes-status"></span>
-        </div>
         <SolutionTab problem={problem} onSolutionSaved={onSolutionSaved} />
       </div>
       {/* Review History Tab */}
@@ -65,10 +58,7 @@ const ProblemDetail: React.FC<ProblemDetailProps> = ({ problem, onNotesSaved, on
       </div>
       {/* Add Problems Tab */}
       <div className={`tab-content${activeTab === 'similar' ? ' active' : ''}`} id="similar-tab">
-        <div className="notes-header">
-          <span>➕ Add Problems</span>
-        </div>
-        <AddProblemsTab problem={problem} />
+        <AddProblemsTab problem={problem} onSelectProblem={onSelectProblem} />
       </div>
     </div>
   );
