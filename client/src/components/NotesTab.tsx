@@ -42,7 +42,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
   const menuPositionRef = useRef<'top' | 'bottom'>('bottom');
   const blocksRef = useRef<Block[]>([]);
 
-  // Load notes from problem object when problem changes
+  // Load notes from problem object when problem ID changes (not when notes content changes)
   useEffect(() => {
     console.log('📝 NotesTab: Problem changed, ID:', problem.id, 'Title:', problem.title);
     console.log('📝 NotesTab: Raw notes data:', problem.notes);
@@ -64,7 +64,6 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
         if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].type) {
           console.log('✅ NotesTab: Loading parsed notes:', parsed);
           setBlocks(parsed);
-          blocksRef.current = parsed;
           setActiveBlock(parsed[0].id);
           return;
         } else {
@@ -78,9 +77,23 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     console.log('📝 NotesTab: Using default blocks');
     const defaultBlocks = [{ id: 1, type: 'text', content: '', placeholder: 'Type "/" for commands' }];
     setBlocks(defaultBlocks);
-    blocksRef.current = defaultBlocks;
     setActiveBlock(1);
-  }, [problem.id, problem.notes]);
+  }, [problem.id]); // Only watch problem.id, not problem.notes
+
+  // Update blocksRef whenever blocks change
+  useEffect(() => {
+    blocksRef.current = blocks;
+  }, [blocks]);
+
+  // Debounced save when blocks change
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      console.log('⏰ Debounce timeout reached, calling saveNotes with latest blocks');
+      saveNotesRef.current(blocks);
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [blocks]);
 
   // Save notes to backend with debouncing
   const saveNotes = useCallback(async (blocksToSave: Block[]) => {
@@ -119,25 +132,6 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
   // Store the latest saveNotes function in a ref
   const saveNotesRef = useRef(saveNotes);
   saveNotesRef.current = saveNotes;
-  
-  // Debounced save function using useRef to prevent recreation
-  const debouncedSaveRef = useRef<(() => void) | null>(null);
-  
-  // Create the debounced function only once
-  if (!debouncedSaveRef.current) {
-    let timeoutId: NodeJS.Timeout;
-    debouncedSaveRef.current = () => {
-      console.log('⏰ debouncedSave called');
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        console.log('⏰ Debounce timeout reached, calling saveNotes with latest blocks');
-        // Always use the latest blocks from the ref
-        saveNotesRef.current(blocksRef.current);
-      }, 500); // 500ms debounce
-    };
-  }
-  
-  const debouncedSave = debouncedSaveRef.current;
 
   // Save on blocks change with debouncing - removed to prevent infinite loops
   // The save will be triggered by individual input changes instead
@@ -154,9 +148,6 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     const newBlocks = [...blocks];
     newBlocks.splice(currentIndex + 1, 0, newBlock);
     setBlocks(prevBlocks => {
-      blocksRef.current = newBlocks;
-      // Trigger debounced save (will use latest blocks from ref)
-      debouncedSave();
       return newBlocks;
     });
     setActiveBlock(newBlockId);
@@ -184,9 +175,6 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     newBlocks.splice(currentIndex, 0, newBlock);
     
     setBlocks(prevBlocks => {
-      blocksRef.current = newBlocks;
-      // Trigger debounced save (will use latest blocks from ref)
-      debouncedSave();
       return newBlocks;
     });
     
@@ -208,9 +196,6 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       if (currentIndex > 0) {
         const updated = [...prevBlocks];
         [updated[currentIndex - 1], updated[currentIndex]] = [updated[currentIndex], updated[currentIndex - 1]];
-        blocksRef.current = updated;
-        // Trigger debounced save
-        debouncedSave();
         return updated;
       }
       return prevBlocks;
@@ -221,10 +206,6 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     setBlocks(prevBlocks => {
       if (prevBlocks.length > 1) {
         const updated = prevBlocks.filter(block => block.id !== blockId);
-        blocksRef.current = updated;
-        
-        // Trigger debounced save
-        debouncedSave();
         
         // Set active block to the previous one or next one
         const deletedIndex = prevBlocks.findIndex(b => b.id === blockId);
@@ -291,8 +272,6 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
               }
               
               console.log('📋 New blocks after HTML paste:', newBlocks);
-              blocksRef.current = newBlocks;
-              debouncedSave();
               
               // Focus the last added block
               const lastBlock = parsedBlocks[parsedBlocks.length - 1];
@@ -344,8 +323,6 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
               }
               
               console.log('📋 New blocks after text paste:', newBlocks);
-              blocksRef.current = newBlocks;
-              debouncedSave();
               
               // Focus the last added block
               const lastBlockId = newBlocks[currentIndex + lines.length - 1].id;
@@ -588,14 +565,12 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       }
     }
     
-    // Update blocks immediately and trigger debounced save
+    // Update blocks immediately using functional update
     setBlocks(prevBlocks => {
-      const newBlocks = prevBlocks.map(block => block.id === blockId ? { ...block, content: value } : block);
+      const newBlocks = prevBlocks.map(block => 
+        block.id === blockId ? { ...block, content: value } : block
+      );
       console.log('📝 Updated blocks:', newBlocks);
-      // Store the latest blocks in a ref
-      blocksRef.current = newBlocks;
-      // Trigger debounced save (will use latest blocks from ref)
-      debouncedSave();
       return newBlocks;
     });
   }, [showMenu.show, showMenu.blockId]);
@@ -614,9 +589,6 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
         placeholder: blockTypes.find(t => t.type === newType)?.placeholder || ''
       } : block
     );
-      blocksRef.current = newBlocks;
-      // Trigger debounced save (will use latest blocks from ref)
-      debouncedSave();
       return newBlocks;
     });
     setShowMenu({ show: false, blockId: null });
@@ -775,11 +747,8 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
             const newBlocks = prevBlocks.map(block =>
               block.id === blockId ? { ...block, type: 'text', placeholder: 'Type something...' } : block
             );
-            blocksRef.current = newBlocks;
             return newBlocks;
           });
-          // Trigger debounced save
-          debouncedSave();
           return;
         }
         
@@ -795,7 +764,6 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
               const newBlocks = prevBlocks.map(block =>
                 block.id === prevBlock.id ? { ...block, content: newContent } : block
               ).filter(block => block.id !== blockId);
-              blocksRef.current = newBlocks;
               return newBlocks;
             });
             setActiveBlock(prevBlock.id);
@@ -806,13 +774,10 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
                 prevTextarea.setSelectionRange(newContent.length, newContent.length);
               }
             }, 0);
-            // Trigger debounced save
-            debouncedSave();
           } else {
             // Delete current block if no previous block or previous is divider
             setBlocks(prevBlocks => {
               const newBlocks = prevBlocks.filter(block => block.id !== blockId);
-              blocksRef.current = newBlocks;
               return newBlocks;
             });
             const nextBlock = blocks[currentIndex + 1] || blocks[currentIndex - 1];
@@ -823,8 +788,6 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
                 if (textarea) textarea.focus();
               }, 0);
             }
-            // Trigger debounced save
-            debouncedSave();
           }
         }
       }
@@ -1136,8 +1099,6 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       
       setBlocks(prevBlocks => {
         const newBlocks = [...prevBlocks, newBlock];
-        blocksRef.current = newBlocks;
-        debouncedSave();
         return newBlocks;
       });
       
@@ -1150,7 +1111,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
         }
       }, 0);
     }
-  }, [blocks, debouncedSave]);
+  }, [blocks]);
 
   return (
     <div 

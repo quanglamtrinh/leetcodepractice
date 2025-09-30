@@ -65,11 +65,21 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
       setBlocks([{ id: 1, type: 'text', content: '', placeholder: 'Type "/" for commands' }]);
       setActiveBlock(1);
     }
-  }, [problem.id, problem.solution]);
+  }, [problem.id]); // Only watch problem.id, not problem.solution
 
   // Update blocksRef whenever blocks change
   useEffect(() => {
     blocksRef.current = blocks;
+  }, [blocks]);
+
+  // Debounced save when blocks change
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      console.log('⏰ Debounce timeout reached, calling saveSolution with latest blocks');
+      saveSolutionRef.current(blocks);
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
   }, [blocks]);
 
   // Auto-resize textareas when blocks change
@@ -87,10 +97,6 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
       }
     });
   }, [blocks]);
-
-  // Debounced save function
-  const saveSolutionRef = useRef<((blocks: Block[]) => void) | null>(null);
-  const debouncedSaveRef = useRef<(() => void) | null>(null);
 
   const saveSolution = useCallback(async (blocks: Block[]) => {
     setStatus('Saving...');
@@ -118,24 +124,9 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
     }
   }, [problem.id, onSolutionSaved]);
 
-  // Initialize debounced save
-  useEffect(() => {
-    saveSolutionRef.current = saveSolution;
-    
-    debouncedSaveRef.current = () => {
-      setTimeout(() => {
-        if (saveSolutionRef.current && blocksRef.current) {
-          saveSolutionRef.current(blocksRef.current);
-        }
-      }, 500);
-    };
-
-    return () => {
-      if (debouncedSaveRef.current) {
-        clearTimeout(debouncedSaveRef.current as any);
-      }
-    };
-  }, [saveSolution]);
+  // Store the latest saveSolution function in a ref
+  const saveSolutionRef = useRef(saveSolution);
+  saveSolutionRef.current = saveSolution;
 
   const handleInputChange = useCallback((blockId: number, value: string) => {
     console.log('⌨️ handleInputChange called:', { blockId, value });
@@ -210,12 +201,8 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
       console.log('📝 Updated blocks:', newBlocks);
       
       // Update the ref immediately with the new blocks
-      blocksRef.current = newBlocks;
       
       // Trigger debounced save
-      if (debouncedSaveRef.current) {
-        debouncedSaveRef.current();
-      }
       
       return newBlocks;
     });
@@ -310,10 +297,6 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
             const newBlocks = currentBlocks.map(block =>
               block.id === blockId ? { ...block, type: 'text', placeholder: 'Type something...' } : block
             );
-            blocksRef.current = newBlocks;
-            if (debouncedSaveRef.current) {
-              debouncedSaveRef.current();
-            }
             return newBlocks;
           }
           
@@ -327,10 +310,6 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
                 block.id === prevBlock.id ? { ...block, content: newContent } : block
               ).filter(block => block.id !== blockId);
               
-              blocksRef.current = newBlocks;
-              if (debouncedSaveRef.current) {
-                debouncedSaveRef.current();
-              }
               
               setActiveBlock(prevBlock.id);
               setTimeout(() => {
@@ -344,10 +323,6 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
               return newBlocks;
             } else {
               const newBlocks = currentBlocks.filter(block => block.id !== blockId);
-              blocksRef.current = newBlocks;
-              if (debouncedSaveRef.current) {
-                debouncedSaveRef.current();
-              }
               
               const nextBlock = currentBlocks[currentIndex + 1] || currentBlocks[currentIndex - 1];
               if (nextBlock) {
@@ -380,7 +355,6 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
         content: '',
         placeholder: blockTypes.find(bt => bt.type === type)?.placeholder
       });
-      blocksRef.current = updated;
       
       setActiveBlock(newBlockId);
       setTimeout(() => {
@@ -406,7 +380,6 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
             } 
           : block
       );
-      blocksRef.current = updated;
       return updated;
     });
     
@@ -426,7 +399,6 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
       if (currentIndex > 0) {
         const updated = [...prevBlocks];
         [updated[currentIndex - 1], updated[currentIndex]] = [updated[currentIndex], updated[currentIndex - 1]];
-        blocksRef.current = updated;
         return updated;
       }
       return prevBlocks;
@@ -439,7 +411,6 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
       if (currentIndex < prevBlocks.length - 1) {
         const updated = [...prevBlocks];
         [updated[currentIndex], updated[currentIndex + 1]] = [updated[currentIndex + 1], updated[currentIndex]];
-        blocksRef.current = updated;
         
         // Move cursor to the block that moved down
         setTimeout(() => {
@@ -461,7 +432,6 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
     setBlocks(prevBlocks => {
       if (prevBlocks.length > 1) {
         const updated = prevBlocks.filter(block => block.id !== blockId);
-        blocksRef.current = updated;
         
         // Set active block to the previous one or next one
         const deletedIndex = prevBlocks.findIndex(b => b.id === blockId);
@@ -719,7 +689,6 @@ const SolutionTab: React.FC<SolutionTabProps> = ({ problem, onSolutionSaved }) =
               updated.splice(currentIndex + 1 + index, 0, block);
             });
             
-            blocksRef.current = updated;
             return updated;
           });
         }
