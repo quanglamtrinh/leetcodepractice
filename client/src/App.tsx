@@ -124,9 +124,21 @@ const App: React.FC = () => {
       )
     );
     
+    // Update solvedProblems array as well
+    setSolvedProblems(prevSolvedProblems => 
+      prevSolvedProblems.map(p => 
+        p.id === problemId ? { ...p, notes } : p
+      )
+    );
+    
     // Update selectedProblem if it's the same problem
     if (selectedProblem && selectedProblem.id === problemId) {
       setSelectedProblem(prev => prev ? { ...prev, notes } : null);
+    }
+    
+    // Update solvedDetailProblem if it's the same problem
+    if (solvedDetailProblem && solvedDetailProblem.id === problemId) {
+      setSolvedDetailProblem(prev => prev ? { ...prev, notes } : null);
     }
   };
 
@@ -138,9 +150,21 @@ const App: React.FC = () => {
       )
     );
     
+    // Update solvedProblems array as well
+    setSolvedProblems(prevSolvedProblems => 
+      prevSolvedProblems.map(p => 
+        p.id === problemId ? { ...p, solution } : p
+      )
+    );
+    
     // Update selectedProblem if it's the same problem
     if (selectedProblem && selectedProblem.id === problemId) {
       setSelectedProblem(prev => prev ? { ...prev, solution } : null);
+    }
+    
+    // Update solvedDetailProblem if it's the same problem
+    if (solvedDetailProblem && solvedDetailProblem.id === problemId) {
+      setSolvedDetailProblem(prev => prev ? { ...prev, solution } : null);
     }
   };
 
@@ -224,23 +248,22 @@ const App: React.FC = () => {
         ) : view === 'solved' ? (
           loadingSolved ? (
             <div>Loading solved problems...</div>
+          ) : solvedDetailOpen && solvedDetailProblem ? (
+            <SolvedDetailView
+              problems={solvedProblems}
+              selectedProblem={solvedDetailProblem}
+              onSelectProblem={handleSolvedProblemClick}
+              onBack={handleCloseSolvedDetail}
+              onMarkAsUnsolved={markAsSolvedToggle}
+              onNotesSaved={handleNotesSaved}
+              onSolutionSaved={handleSolutionSaved}
+            />
           ) : (
-            <>
-              <SolvedProblemsList
-                problems={solvedProblems}
-                selectedProblem={solvedDetailProblem}
-                onSelectProblem={handleSolvedProblemClick}
-              />
-              {solvedDetailOpen && solvedDetailProblem && (
-                <SolvedDetailView
-                  problems={solvedProblems}
-                  selectedProblem={solvedDetailProblem}
-                  onSelectProblem={handleSolvedProblemClick}
-                  onBack={handleCloseSolvedDetail}
-                  onMarkAsUnsolved={markAsSolvedToggle}
-                />
-              )}
-            </>
+            <SolvedProblemsList
+              problems={solvedProblems}
+              selectedProblem={solvedDetailProblem}
+              onSelectProblem={handleSolvedProblemClick}
+            />
           )
         ) : view === 'due-today' ? (
           loadingDueToday ? (

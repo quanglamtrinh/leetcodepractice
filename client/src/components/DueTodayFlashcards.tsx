@@ -16,13 +16,22 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
   const [current, setCurrent] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [remainingProblems, setRemainingProblems] = useState(problems);
 
   // Helper function to get difficulty class (matching script.js)
   const getDifficultyClass = (difficulty: string) => {
     return difficulty.toLowerCase();
   };
 
-  if (!problems || problems.length === 0) {
+  // Update remainingProblems when problems prop changes
+  React.useEffect(() => {
+    setRemainingProblems(problems);
+    setCurrent(0);
+    setFlipped(false);
+    setCompleted(false);
+  }, [problems]);
+
+  if (!remainingProblems || remainingProblems.length === 0) {
     return (
       <div className="flashcard-study-complete">
         <h2>🎉 Well done!</h2>
@@ -31,8 +40,24 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
     );
   }
 
-  const problem = problems[current];
-  const progress = Math.round(((current + 1) / problems.length) * 100);
+  const problem = remainingProblems[current];
+  const progress = Math.round(((current + 1) / remainingProblems.length) * 100);
+
+  // Helper function to generate LeetCode URL from problem title
+  const generateLeetCodeUrl = (title: string) => {
+    // Convert title to LeetCode URL format
+    // Example: "Two Sum" -> "two-sum"
+    const urlTitle = title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+      .trim();
+    return `https://leetcode.com/problems/${urlTitle}/`;
+  };
+
+  // Get LeetCode URL (use existing link or generate one)
+  const leetcodeUrl = problem.leetcode_link || generateLeetCodeUrl(problem.title);
 
   // Safety check to prevent undefined access
   if (!problem) {
@@ -46,9 +71,9 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
 
   const handleFlip = () => setFlipped(f => !f);
   const handlePrev = () => setCurrent(c => (c > 0 ? c - 1 : c));
-  const handleNext = () => setCurrent(c => (c < problems.length - 1 ? c + 1 : c));
+  const handleNext = () => setCurrent(c => (c < remainingProblems.length - 1 ? c + 1 : c));
   const handleShuffle = () => {
-    const idx = Math.floor(Math.random() * problems.length);
+    const idx = Math.floor(Math.random() * remainingProblems.length);
     setCurrent(idx);
     setFlipped(false);
   };
@@ -57,7 +82,9 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
       const timeSpent = (document.getElementById('flashcardTimeInput') as HTMLInputElement)?.value || '';
       const comment = (document.getElementById('flashcardCommentInput') as HTMLTextAreaElement)?.value || '';
       
-      await fetch(`/api/problems/${problem.id}/review`, {
+      console.log('🔄 Marking as remembered:', { problemId: problem.id, timeSpent, comment });
+      
+      const response = await fetch(`/api/problems/${problem.id}/review`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -67,13 +94,33 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
         })
       });
       
-      if (current === problems.length - 1) setCompleted(true);
-      else {
-        setCurrent(c => c + 1);
-        setFlipped(false);
+      if (response.ok) {
+        console.log('✅ Review saved successfully');
+        // Remove the current problem from the list
+        const newProblems = remainingProblems.filter((_, index) => index !== current);
+        setRemainingProblems(newProblems);
+        
+        // Clear the input fields
+        const timeInput = document.getElementById('flashcardTimeInput') as HTMLInputElement;
+        const commentInput = document.getElementById('flashcardCommentInput') as HTMLTextAreaElement;
+        if (timeInput) timeInput.value = '';
+        if (commentInput) commentInput.value = '';
+        
+        if (newProblems.length === 0) {
+          setCompleted(true);
+        } else {
+          // Adjust current index if needed
+          const newCurrent = current >= newProblems.length ? newProblems.length - 1 : current;
+          setCurrent(newCurrent);
+          setFlipped(false);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Review failed:', response.status, errorText);
+        alert(`Failed to update review status: ${response.status}`);
       }
     } catch (error) {
-      console.error('Error marking as remembered:', error);
+      console.error('❌ Error marking as remembered:', error);
       alert('Failed to update review status. Please try again.');
     }
   };
@@ -83,7 +130,9 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
       const timeSpent = (document.getElementById('flashcardTimeInput') as HTMLInputElement)?.value || '';
       const comment = (document.getElementById('flashcardCommentInput') as HTMLTextAreaElement)?.value || '';
       
-      await fetch(`/api/problems/${problem.id}/review`, {
+      console.log('🔄 Marking as forgot:', { problemId: problem.id, timeSpent, comment });
+      
+      const response = await fetch(`/api/problems/${problem.id}/review`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -93,13 +142,33 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
         })
       });
       
-      if (current === problems.length - 1) setCompleted(true);
-      else {
-        setCurrent(c => c + 1);
-        setFlipped(false);
+      if (response.ok) {
+        console.log('✅ Review saved successfully');
+        // Remove the current problem from the list
+        const newProblems = remainingProblems.filter((_, index) => index !== current);
+        setRemainingProblems(newProblems);
+        
+        // Clear the input fields
+        const timeInput = document.getElementById('flashcardTimeInput') as HTMLInputElement;
+        const commentInput = document.getElementById('flashcardCommentInput') as HTMLTextAreaElement;
+        if (timeInput) timeInput.value = '';
+        if (commentInput) commentInput.value = '';
+        
+        if (newProblems.length === 0) {
+          setCompleted(true);
+        } else {
+          // Adjust current index if needed
+          const newCurrent = current >= newProblems.length ? newProblems.length - 1 : current;
+          setCurrent(newCurrent);
+          setFlipped(false);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Review failed:', response.status, errorText);
+        alert(`Failed to update review status: ${response.status}`);
       }
     } catch (error) {
-      console.error('Error marking as forgot:', error);
+      console.error('❌ Error marking as forgot:', error);
       alert('Failed to update review status. Please try again.');
     }
   };
@@ -120,12 +189,12 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
       </div>
       <div className="flashcard-container">
         <div className="flashcard-study-info">
-          <div className="flashcard-card-counter">
-            <span>Card</span>
-            <span id="currentCard">{current + 1}</span>
-            <span>of</span>
-            <span id="totalCards">{problems.length}</span>
-          </div>
+           <div className="flashcard-card-counter">
+             <span>Card</span>
+             <span id="currentCard">{current + 1}</span>
+             <span>of</span>
+             <span id="totalCards">{remainingProblems.length}</span>
+           </div>
           <div className="flashcard-progress-container">
             <div className="flashcard-progress-bar">
               <div className="flashcard-progress-fill" id="progressFill" style={{ width: `${progress}%` }}></div>
@@ -136,9 +205,7 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
         <div className={`flashcard${flipped ? ' flipped' : ''}`} id="flashcard" onClick={handleFlip} style={{ cursor: 'pointer' }}>
           <div className="flashcard-front">
             <div className="flashcard-label">
-              {problem.leetcode_link && (
-                <a href={problem.leetcode_link} target="_blank" rel="noopener noreferrer" className="flashcard-leetcode-link">View on LeetCode</a>
-              )}
+              <a href={leetcodeUrl} target="_blank" rel="noopener noreferrer" className="flashcard-leetcode-link" onClick={e => e.stopPropagation()}>View on LeetCode</a>
             </div>
             <div className="flashcard-content" id="frontContent">{problem.title}</div>
             <div className="flashcard-extra-inputs">
@@ -155,9 +222,7 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
           </div>
           <div className="flashcard-back">
             <div className="flashcard-label">
-              {problem.leetcode_link && (
-                <a href={problem.leetcode_link} target="_blank" rel="noopener noreferrer" className="flashcard-leetcode-link">View on LeetCode</a>
-              )}
+              <a href={leetcodeUrl} target="_blank" rel="noopener noreferrer" className="flashcard-leetcode-link" onClick={e => e.stopPropagation()}>View on LeetCode</a>
             </div>
             <div className="flashcard-content" id="backContent">
               {problem.solution && problem.solution.trim() ? (
@@ -184,11 +249,11 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
             <div className="flashcard-flip-hint"><span>Click to flip back</span></div>
           </div>
         </div>
-        <div className="flashcard-navigation-controls">
-          <button className="flashcard-nav-btn" id="prevBtn" title="Previous Problem" onClick={e => { e.stopPropagation(); handlePrev(); }} disabled={current === 0}><span>←</span></button>
-          <button className="flashcard-nav-btn" id="nextBtn" title="Next Problem" onClick={e => { e.stopPropagation(); handleNext(); }} disabled={current === problems.length - 1}><span>→</span></button>
-          <button className="flashcard-nav-btn" id="shuffleBtn" title="Shuffle Problems" onClick={e => { e.stopPropagation(); handleShuffle(); }}><span>🔀</span></button>
-        </div>
+         <div className="flashcard-navigation-controls">
+           <button className="flashcard-nav-btn" id="prevBtn" title="Previous Problem" onClick={e => { e.stopPropagation(); handlePrev(); }} disabled={current === 0}><span>←</span></button>
+           <button className="flashcard-nav-btn" id="nextBtn" title="Next Problem" onClick={e => { e.stopPropagation(); handleNext(); }} disabled={current === remainingProblems.length - 1}><span>→</span></button>
+           <button className="flashcard-nav-btn" id="shuffleBtn" title="Shuffle Problems" onClick={e => { e.stopPropagation(); handleShuffle(); }}><span>🔀</span></button>
+         </div>
         <div className="flashcard-review-buttons">
           <button className="flashcard-btn flashcard-btn-success" id="rememberedBtn" onClick={e => { e.stopPropagation(); handleRemembered(); }}>Remembered</button>
           <button className="flashcard-btn flashcard-btn-danger" id="forgotBtn" onClick={e => { e.stopPropagation(); handleForgot(); }}>Forgot</button>

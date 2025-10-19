@@ -13,9 +13,11 @@ interface SolvedDetailViewProps {
   onSelectProblem: (problem: Problem) => void;
   onBack: () => void;
   onMarkAsUnsolved: (problemId: number) => Promise<void>;
+  onNotesSaved?: (problemId: number, notes: string) => void;
+  onSolutionSaved?: (problemId: number, solution: string) => void;
 }
 
-const SolvedDetailView: React.FC<SolvedDetailViewProps> = ({ problems, selectedProblem, onSelectProblem, onBack, onMarkAsUnsolved }) => {
+const SolvedDetailView: React.FC<SolvedDetailViewProps> = ({ problems, selectedProblem, onSelectProblem, onBack, onMarkAsUnsolved, onNotesSaved, onSolutionSaved }) => {
   const [originalProblem, setOriginalProblem] = useState<Problem | null>(selectedProblem);
   const [isViewingSimilar, setIsViewingSimilar] = useState(false);
   const [similarProblems, setSimilarProblems] = useState<Problem[]>([]);
@@ -163,6 +165,8 @@ const SolvedDetailView: React.FC<SolvedDetailViewProps> = ({ problems, selectedP
             <ProblemDetail 
               problem={selectedProblem} 
               onSelectProblem={handleProblemSelect}
+              onNotesSaved={onNotesSaved}
+              onSolutionSaved={onSolutionSaved}
             />
           </div>
         </div>

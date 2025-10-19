@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Notes Test</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-8">
+    <h1 class="text-2xl font-bold mb-4">Simple Notes Test</h1>
+    
+    <div id="notes-tab" class="border border-gray-300 rounded-lg p-4 min-h-[400px]">
+        <!-- This will be replaced by the enhanced notes tab -->
+    </div>
+    
+    <div class="mt-4">
+        <button onclick="loadProblem()" class="bg-blue-500 text-white px-4 py-2 rounded">Load Test Problem</button>
+    </div>
+
+    <script src="enhanced-notes-standalone.js"></script>
+    <script src="enhanced-notes-react-integration.js"></script>
+    <script>
+        function loadProblem() {
+            const testProblem = {
+                id: 1,
+                title: 'Test Problem',
+                notes: JSON.stringify([
+                    { id: 1, type: 'heading', content: 'Test Heading' },
+                    { id: 2, type: 'text', content: 'This is a test note with some content.' },
+                    { id: 3, type: 'bullet', content: 'First bullet point' },
+                    { id: 4, type: 'bullet', content: 'Second bullet point' },
+                    { id: 5, type: 'todo', content: 'Todo item', checked: false }
+                ])
+            };
+            
+            console.log('Loading test problem:', testProblem);
+            
+            if (window.mountEnhancedNotesTab) {
+                console.log('Mounting enhanced notes tab...');
+                window.mountEnhancedNotesTab(testProblem, 'notes-tab');
+            } else {
+                console.error('mountEnhancedNotesTab not found');
+            }
+        }
+        
+        // Auto-load after scripts are ready
+        setTimeout(() => {
+            console.log('Auto-loading test problem...');
+            loadProblem();
+        }, 1000);
+    </script>
+</body>
+</html>

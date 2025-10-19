@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .status { margin: 10px 0; padding: 10px; background: #f0f0f0; }
+        .success { color: green; }
+        .error { color: red; }
+        button { margin: 5px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Quick Notes Fix Test</h1>
+    
+    <div class="status" id="status">Loading...</div>
+    
+    <div>
+        <button onclick="testFix()">Test Fix Status</button>
+        <button onclick="testWithProblem16()">Test Problem 16</button>
+        <button onclick="openMainApp()">Open Main App</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <!-- Load scripts in the same order as main app -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="enhanced-notes-standalone.js"></script>
+    <script src="enhanced-notes-react-integration.js"></script>
+    <script src="enhanced-tabs-react-integration.js"></script>
+    <script src="console-test-task-8.js"></script>
+    <script src="debug-notes.js"></script>
+    <script src="add-test-button.js"></script>
+    <script src="fix-notes-tab.js"></script>
+    
+    <script>
+        const status = document.getElementById('status');
+        const results = document.getElementById('results');
+        
+        function updateStatus(message, isError = false) {
+            status.textContent = message;
+            status.className = 'status ' + (isError ? 'error' : 'success');
+            console.log(message);
+        }
+        
+        function addResult(message, isError = false) {
+            const div = document.createElement('div');
+            div.textContent = message;
+            div.className = isError ? 'error' : 'success';
+            results.appendChild(div);
+        }
+        
+        function testFix() {
+            updateStatus('Testing fix status...');
+            results.innerHTML = '';
+            
+            // Test if functions exist
+            addResult('loadNoteForProblem: ' + (typeof window.loadNoteForProblem), typeof window.loadNoteForProblem !== 'function');
+            addResult('saveNoteForProblem: ' + (typeof window.saveNoteForProblem), typeof window.saveNoteForProblem !== 'function');
+            addResult('testNotesFixWorking: ' + (typeof window.testNotesFixWorking), typeof window.testNotesFixWorking !== 'function');
+            
+            // Test if fix is active
+            if (window.testNotesFixWorking) {
+                const fixWorking = window.testNotesFixWorking();
+                addResult('Fix is active: ' + fixWorking, !fixWorking);
+            }
+            
+            // Test enhanced notes functions
+            addResult('mountEnhancedNotesTab: ' + (typeof window.mountEnhancedNotesTab));
+            addResult('updateEnhancedNotesTabProblem: ' + (typeof window.updateEnhancedNotesTabProblem));
+            
+            updateStatus('Fix test completed');
+        }
+        
+        async function testWithProblem16() {
+            updateStatus('Testing with Problem 16...');
+            results.innerHTML = '';
+            
+            try {
+                // Create a test problem
+                const problem = {
+                    id: 16,
+                    title: 'Create Maximum Number',
+                    notes: ''
+                };
+                
+                // Set as current problem
+                window.currentProblem = problem;
+                addResult('Current problem set: ' + problem.title);
+                
+                // Test loading notes
+                if (window.loadNoteForProblem) {
+                    addResult('Calling loadNoteForProblem...');
+                    await window.loadNoteForProblem(problem);
+                    addResult('loadNoteForProblem completed');
+                    
+                    // Check if notes were loaded
+                    if (problem.notes && problem.notes.length > 0) {
+                        addResult('Notes loaded: ' + problem.notes.length + ' characters');
+                    } else {
+                        addResult('No notes loaded', true);
+                    }
+                } else {
+                    addResult('loadNoteForProblem not available', true);
+                }
+                
+                updateStatus('Problem 16 test completed');
+                
+            } catch (error) {
+                addResult('Error: ' + error.message, true);
+                updateStatus('Problem 16 test failed', true);
+            }
+        }
+        
+        function openMainApp() {
+            window.open('index.html', '_blank');
+        }
+        
+        // Auto-test on load
+        setTimeout(() => {
+            testFix();
+        }, 2000);
+    </script>
+</body>
+</html>

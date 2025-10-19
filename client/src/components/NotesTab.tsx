@@ -17,6 +17,7 @@ const blockTypes = [
   { type: 'code', icon: Code, label: 'Code', placeholder: 'Write your code here...' },
   { type: 'heading', icon: Hash, label: 'Heading', placeholder: 'Heading' },
   { type: 'bullet', icon: List, label: 'Bullet List', placeholder: 'List item' },
+  { type: 'sub-bullet', icon: List, label: 'Sub Bullet', placeholder: 'Sub item' },
   { type: 'quote', icon: Quote, label: 'Quote', placeholder: 'Quote' },
   { type: 'divider', icon: Minus, label: 'Divider', placeholder: '' }
 ];
@@ -26,6 +27,7 @@ type Block = {
   type: string;
   content: string;
   placeholder?: string;
+  level?: number; // For nested bullets: 0 = main bullet, 1 = sub-bullet, 2 = sub-sub-bullet, etc.
 };
 
 const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
@@ -36,6 +38,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
   const [activeBlock, setActiveBlock] = useState(1);
   const [, setStatus] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const textareaRefs = useRef<{ [key: number]: HTMLTextAreaElement | null }>({});
   const codeBlockRefs = useRef<{ [key: number]: any }>({});
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -156,6 +159,47 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       if (textarea) textarea.focus();
     }, 0);
   };
+
+  const clearNotes = useCallback(async () => {
+    try {
+      setStatus('Clearing...');
+      const response = await fetch(`/api/problems/${problem.id}/notes`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notes: JSON.stringify([{ id: 1, type: 'text', content: '', placeholder: 'Type "/" for commands' }])
+        })
+      });
+      
+      if (response.ok) {
+        setStatus('Cleared!');
+        setTimeout(() => setStatus(''), 1200);
+        
+        // Reset to default blocks
+        const defaultBlocks = [{ id: 1, type: 'text', content: '', placeholder: 'Type "/" for commands' }];
+        setBlocks(defaultBlocks);
+        setActiveBlock(1);
+        
+        // Update parent component
+        onNotesSaved?.(problem.id, JSON.stringify(defaultBlocks));
+        console.log('✅ Notes cleared successfully');
+      } else {
+        setStatus('Failed to clear');
+        setTimeout(() => setStatus(''), 3000);
+        const errorText = await response.text();
+        console.error('❌ Clear failed:', response.status, errorText);
+      }
+    } catch (error) {
+      setStatus('Failed to clear');
+      setTimeout(() => setStatus(''), 3000);
+      console.error('❌ Clear error:', error);
+    }
+  }, [problem.id, onNotesSaved]);
+
+  const handleClearConfirm = useCallback(() => {
+    clearNotes();
+    setShowClearConfirm(false);
+  }, [clearNotes]);
 
   const moveBlockDown = (blockId: number) => {
     const currentIndex = blocks.findIndex(b => b.id === blockId);
@@ -349,6 +393,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     // For single-line text, let the default paste behavior handle it
   }, []);
 
+
   const parseHtmlToBlocks = (element: HTMLElement): Block[] => {
     console.log('📋 parseHtmlToBlocks called with element:', element);
     console.log('📋 blocksRef.current:', blocksRef.current);
@@ -524,8 +569,8 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
         } else {
           // Fallback to original positioning
         setShowMenu({ show: true, blockId, x: rect.left, y: rect.bottom + window.scrollY });
-        }
       }
+    }
       
       // Handle specific slash commands
     if (value === '/code') {
@@ -546,6 +591,12 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
         }, 100);
         return;
       }
+      if (value === '/sub-bullet') {
+        setTimeout(() => {
+          changeBlockType(blockId, 'sub-bullet');
+        }, 100);
+        return;
+      }
       if (value === '/quote') {
         setTimeout(() => {
           changeBlockType(blockId, 'quote');
@@ -562,7 +613,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       // Hide menu if not typing slash commands
       if (showMenu.show && showMenu.blockId === blockId) {
       setShowMenu({ show: false, blockId: null });
-      }
+    }
     }
     
     // Update blocks immediately using functional update
@@ -691,7 +742,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
           setShowMenu({ show: true, blockId, x: relativeX, y: relativeY });
         } else {
           // Fallback to original positioning
-          setShowMenu({ show: true, blockId });
+      setShowMenu({ show: true, blockId });
         }
       } else {
       setShowMenu({ show: true, blockId });
@@ -713,7 +764,7 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       if (cursorPosition === 0) {
         moveBlockDown(blockId);
       } else if (currentBlock?.type === 'bullet') {
-        // If it's a bullet block, create a new bullet block below
+        // If it's a bullet block, create a new bullet block at the same level
         addNewBlock(blockId, 'bullet');
       } else {
         // Normal behavior: add new text block after current one
@@ -732,20 +783,46 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     } else if (e.key === 'ArrowUp' && showMenu.show) {
       // Handle arrow key navigation in menu (simplified)
       e.preventDefault();
+    } else if (e.key === 'Tab') {
+      const currentBlock = blocks.find(b => b.id === blockId);
+      if (currentBlock?.type === 'bullet') {
+        e.preventDefault();
+        console.log('🔧 Tab pressed on bullet block:', currentBlock, 'Current level:', currentBlock.level || 0);
+        // Increase nesting level
+        setBlocks(prevBlocks => {
+          const newBlocks = prevBlocks.map(block =>
+            block.id === blockId ? { ...block, level: (block.level || 0) + 1 } : block
+          );
+          console.log('🔧 Updated blocks with new level:', newBlocks.find(b => b.id === blockId));
+          return newBlocks;
+        });
+      }
+    } else if (e.key === 'Tab' && e.shiftKey) {
+      const currentBlock = blocks.find(b => b.id === blockId);
+      if (currentBlock?.type === 'bullet' && (currentBlock.level || 0) > 0) {
+        e.preventDefault();
+        // Decrease nesting level
+        setBlocks(prevBlocks => {
+          const newBlocks = prevBlocks.map(block =>
+            block.id === blockId ? { ...block, level: Math.max(0, (block.level || 0) - 1) } : block
+          );
+          return newBlocks;
+        });
+      }
     } else if (e.key === 'Backspace') {
       const textarea = e.target as HTMLTextAreaElement;
       const cursorPosition = textarea.selectionStart || 0;
-      const currentBlock = blocks.find(b => b.id === blockId);
-      
+        const currentBlock = blocks.find(b => b.id === blockId);
+        
       // If cursor is at the start of the line (position 0)
       if (cursorPosition === 0) {
-        e.preventDefault();
+          e.preventDefault();
         
         // Special case: Convert bullet block to text block
         if (currentBlock?.type === 'bullet') {
           setBlocks(prevBlocks => {
             const newBlocks = prevBlocks.map(block =>
-              block.id === blockId ? { ...block, type: 'text', placeholder: 'Type something...' } : block
+              block.id === blockId ? { ...block, type: 'text', placeholder: 'Type something...', level: undefined } : block
             );
             return newBlocks;
           });
@@ -935,18 +1012,37 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       );
     }
     const baseClasses = "w-full resize-none border-none outline-none bg-transparent";
+    const getBulletClasses = (block: Block) => {
+      return "text-gray-800 text-base leading-6";
+    };
+
+    const getBulletStyle = (block: Block) => {
+      if (block.type === 'bullet') {
+        const level = block.level || 0;
+        const paddingLeft = 24 + (level * 24); // 24px base + 24px per level
+        console.log('🔧 Bullet style for block:', block.id, 'level:', level, 'paddingLeft:', paddingLeft);
+        return { paddingLeft: `${paddingLeft}px` };
+      }
+      return {};
+    };
+
     const typeClasses: { [key: string]: string } = {
       text: "text-gray-800 text-base leading-6",
       code: "font-mono text-sm bg-gray-900 rounded px-3 py-2 text-green-400 border border-gray-700 whitespace-pre-wrap",
       heading: "text-2xl font-bold text-gray-900 leading-8",
-      bullet: "text-gray-800 text-base leading-6 pl-6",
+      bullet: "text-gray-800 text-base leading-6",
+      'sub-bullet': "text-gray-800 text-base leading-6",
       quote: "text-gray-700 text-base leading-6 border-l-4 border-gray-300 pl-4 italic"
     };
     return (
       <div key={block.id} className="relative group mb-2" onClick={() => setActiveBlock(block.id)}>
         <div className="flex items-start">
           {block.type === 'bullet' && (
-            <span className="absolute left-2 top-1 w-1 h-1 bg-gray-400 rounded-full"></span>
+            <span 
+              className="absolute top-2 w-1.5 h-1.5 bg-gray-800 rounded-full"
+              style={{ left: `${8 + ((block.level || 0) * 24)}px` }}
+              title={`Level ${block.level || 0}`}
+            ></span>
           )}
           <div className="flex-1">
             <textarea
@@ -955,13 +1051,15 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange(block.id, e.target.value)}
               onFocus={() => setActiveBlock(block.id)}
               placeholder={block.placeholder}
-              className={`${baseClasses} ${typeClasses[block.type]} placeholder-gray-400`}
+              className={`${baseClasses} ${block.type === 'bullet' ? getBulletClasses(block) : typeClasses[block.type]} placeholder-gray-400`}
+              data-block-id={block.id}
               rows={1}
               style={{
                 minHeight: block.type === 'heading' ? '30px' : '24px',
                 height: 'auto',
                 resize: 'none',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                ...getBulletStyle(block)
               }}
               onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
                 const target = e.target as HTMLTextAreaElement;
@@ -1146,6 +1244,50 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
           return;
         }
         
+        // Handle Tab key for bullet nesting
+        if (e.key === 'Tab') {
+          const activeElement = document.activeElement as HTMLTextAreaElement;
+          if (activeElement && activeElement.tagName === 'TEXTAREA') {
+            const blockId = parseInt(activeElement.getAttribute('data-block-id') || '0');
+            const currentBlock = blocks.find(b => b.id === blockId);
+            if (currentBlock?.type === 'bullet') {
+              e.preventDefault();
+              console.log('🔧 Global Tab pressed on bullet block:', currentBlock, 'Current level:', currentBlock.level || 0);
+              // Increase nesting level
+              setBlocks(prevBlocks => {
+                const newBlocks = prevBlocks.map(block =>
+                  block.id === blockId ? { ...block, level: (block.level || 0) + 1 } : block
+                );
+                console.log('🔧 Global updated blocks with new level:', newBlocks.find(b => b.id === blockId));
+                return newBlocks;
+              });
+            }
+          }
+          return;
+        }
+        
+        // Handle Shift+Tab key for bullet un-nesting
+        if (e.key === 'Tab' && e.shiftKey) {
+          const activeElement = document.activeElement as HTMLTextAreaElement;
+          if (activeElement && activeElement.tagName === 'TEXTAREA') {
+            const blockId = parseInt(activeElement.getAttribute('data-block-id') || '0');
+            const currentBlock = blocks.find(b => b.id === blockId);
+            if (currentBlock?.type === 'bullet' && (currentBlock.level || 0) > 0) {
+              e.preventDefault();
+              console.log('🔧 Global Shift+Tab pressed on bullet block:', currentBlock, 'Current level:', currentBlock.level || 0);
+              // Decrease nesting level
+              setBlocks(prevBlocks => {
+                const newBlocks = prevBlocks.map(block =>
+                  block.id === blockId ? { ...block, level: Math.max(0, (block.level || 0) - 1) } : block
+                );
+                console.log('🔧 Global updated blocks with decreased level:', newBlocks.find(b => b.id === blockId));
+                return newBlocks;
+              });
+            }
+          }
+          return;
+        }
+        
         // Handle Backspace when cursor is not in any block
         if (e.key === 'Backspace' && document.activeElement === e.currentTarget) {
           
@@ -1167,8 +1309,18 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       }}
       tabIndex={0}
     >
-      {/* Fullscreen Toggle Button */}
-      <div className={`flex justify-end ${isFullscreen ? 'mb-4' : 'mb-2'}`}>
+      {/* Action Buttons */}
+      <div className={`flex justify-end gap-2 ${isFullscreen ? 'mb-4' : 'mb-2'}`}>
+        <button
+          onClick={() => setShowClearConfirm(true)}
+          className="flex items-center gap-2 px-3 py-2 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
+          title="Clear all notes"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          Clear Notes
+        </button>
         <button
           onClick={toggleFullscreen}
           className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
@@ -1200,6 +1352,41 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
           addNewBlock(lastBlockId, 'text');
         }}
       />
+
+      {/* Clear Confirmation Dialog */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-lg font-medium text-gray-900">Clear Notes</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Are you sure you want to clear all notes for this problem? This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClearConfirm}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+              >
+                Clear Notes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

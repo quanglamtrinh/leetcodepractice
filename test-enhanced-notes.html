@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Enhanced Notes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-8">
+    <h1 class="text-2xl font-bold mb-4">Enhanced Notes Test</h1>
+    
+    <div class="mb-4">
+        <button onclick="testSave()" class="bg-blue-500 text-white px-4 py-2 rounded mr-2">Test Save</button>
+        <button onclick="testLoad()" class="bg-green-500 text-white px-4 py-2 rounded mr-2">Test Load</button>
+        <button onclick="testClear()" class="bg-red-500 text-white px-4 py-2 rounded">Test Clear</button>
+    </div>
+    
+    <div id="enhanced-notes-editor-container" class="border border-gray-300 rounded-lg p-4 min-h-[400px]">
+        <!-- Editor will be rendered here -->
+    </div>
+    
+    <div class="mt-4">
+        <h3 class="font-bold">Instructions:</h3>
+        <ul class="list-disc list-inside text-sm text-gray-600">
+            <li>Type "/" followed by a command: /h (heading), /b (bullet), /n (numbered), /t (todo), /c (code), /q (quote), /d (divider)</li>
+            <li>Press Enter to create new blocks</li>
+            <li>Press Backspace on empty blocks to delete them</li>
+        </ul>
+    </div>
+
+    <script src="enhanced-notes-standalone.js"></script>
+    <script>
+        // Initialize the editor
+        window.initEnhancedNotesEditor('enhanced-notes-editor-container');
+        
+        function testSave() {
+            const content = window.getEnhancedNotes();
+            console.log('Current content:', content);
+            alert('Content saved to console. Check browser console.');
+        }
+        
+        function testLoad() {
+            const testContent = JSON.stringify([
+                { id: 1, type: 'heading', content: 'Test Heading' },
+                { id: 2, type: 'text', content: 'This is a test paragraph.' },
+                { id: 3, type: 'bullet', content: 'Bullet point 1' },
+                { id: 4, type: 'bullet', content: 'Bullet point 2' },
+                { id: 5, type: 'todo', content: 'Todo item', checked: false },
+                { id: 6, type: 'code', content: 'console.log("Hello World");' },
+                { id: 7, type: 'quote', content: 'This is a quote' },
+                { id: 8, type: 'divider', content: '' }
+            ]);
+            window.loadEnhancedNotes(testContent);
+        }
+        
+        function testClear() {
+            const defaultContent = JSON.stringify([{
+                id: 1,
+                type: 'text',
+                content: '',
+                placeholder: 'Type "/" for commands'
+            }]);
+            window.loadEnhancedNotes(defaultContent);
+        }
+    </script>
+</body>
+</html>

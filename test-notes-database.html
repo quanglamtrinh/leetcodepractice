@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Notes Database Loading</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-container { border: 1px solid #ccc; padding: 20px; margin: 10px 0; }
+        .status { margin: 10px 0; padding: 10px; background: #f0f0f0; }
+        .notes-panel { max-width: 800px; }
+        .notes-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .problem-selector { margin: 10px 0; }
+        .problem-selector select { padding: 8px; width: 300px; }
+        .debug-info { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; margin: 10px 0; font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Notes Database Loading Test</h1>
+    
+    <div class="status" id="status">Loading problems...</div>
+    
+    <div class="test-container">
+        <h2>Problem Selector</h2>
+        <div class="problem-selector">
+            <select id="problemSelect" onchange="loadSelectedProblem()">
+                <option value="">Select a problem...</option>
+            </select>
+            <button onclick="refreshProblems()">Refresh Problems</button>
+        </div>
+        
+        <div id="debugInfo" class="debug-info" style="display: none;">
+            <h4>Debug Information:</h4>
+            <div id="debugContent"></div>
+        </div>
+    </div>
+    
+    <div class="test-container">
+        <div class="notes-panel">
+            <!-- Notes Tab -->
+            <div class="notes-header">
+                <span>📝 Notes</span>
+                <span id="notesStatus" class="notes-status"></span>
+            </div>
+            <div
+                id="notesEditor"
+                class="notes-editor"
+                contenteditable="true"
+                spellcheck="false"
+                placeholder="Write your notes here…"
+            ></div>
+        </div>
+        
+        <div style="margin-top: 10px;">
+            <button onclick="debugCurrentProblem()">Debug Current Problem</button>
+            <button onclick="reloadNotes()">Reload Notes</button>
+            <button onclick="saveNotes()">Save Notes</button>
+        </div>
+    </div>
+
+    <!-- Load the fix -->
+    <script src="fix-notes-tab.js"></script>
+    
+    <script>
+        const status = document.getElementById('status');
+        const problemSelect = document.getElementById('problemSelect');
+        const debugInfo = document.getElementById('debugInfo');
+        const debugContent = document.getElementById('debugContent');
+        
+        let allProblems = [];
+        
+        function updateStatus(message) {
+            status.textContent = message;
+            console.log(message);
+        }
+        
+        async function loadProblems() {
+            try {
+                updateStatus('Loading problems from database...');
+                const response = await fetch('http://localhost:3001/api/problems');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                allProblems = await response.json();
+                updateStatus(`✅ Loaded ${allProblems.length} problems`);
+                
+                // Populate select dropdown
+                problemSelect.innerHTML = '<option value="">Select a problem...</option>';
+                
+                // Filter problems that have notes
+                const problemsWithNotes = allProblems.filter(p => p.notes && p.notes.trim());
+                console.log(`Found ${problemsWithNotes.length} problems with notes`);
+                
+                // Add problems with notes first
+                if (problemsWithNotes.length > 0) {
+                    const optgroup1 = document.createElement('optgroup');
+                    optgroup1.label = `Problems with Notes (${problemsWithNotes.length})`;
+                    problemsWithNotes.forEach(problem => {
+                        const option = document.createElement('option');
+                        option.value = problem.id;
+                        option.textContent = `${problem.id}: ${problem.title} (${problem.notes.length} chars)`;
+                        optgroup1.appendChild(option);
+                    });
+                    problemSelect.appendChild(optgroup1);
+                }
+                
+                // Add first 20 problems without notes
+                const problemsWithoutNotes = allProblems.filter(p => !p.notes || !p.notes.trim()).slice(0, 20);
+                if (problemsWithoutNotes.length > 0) {
+                    const optgroup2 = document.createElement('optgroup');
+                    optgroup2.label = `Problems without Notes (showing first 20)`;
+                    problemsWithoutNotes.forEach(problem => {
+                        const option = document.createElement('option');
+                        option.value = problem.id;
+                        option.textContent = `${problem.id}: ${problem.title}`;
+                        optgroup2.appendChild(option);
+                    });
+                    problemSelect.appendChild(optgroup2);
+                }
+                
+            } catch (error) {
+                updateStatus('❌ Error loading problems: ' + error.message);
+                console.error(error);
+            }
+        }
+        
+        async function loadSelectedProblem() {
+            const problemId = problemSelect.value;
+            if (!problemId) return;
+            
+            const problem = allProblems.find(p => p.id == problemId);
+            if (!problem) {
+                updateStatus('❌ Problem not found');
+                return;
+            }
+            
+            updateStatus(`Loading problem: ${problem.title}`);
+            window.currentProblem = problem;
+            
+            // Show debug info
+            debugInfo.style.display = 'block';
+            debugContent.innerHTML = `
+                <strong>Problem ID:</strong> ${problem.id}<br>
+                <strong>Title:</strong> ${problem.title}<br>
+                <strong>Notes Length:</strong> ${problem.notes?.length || 0}<br>
+                <strong>Notes Preview:</strong> ${problem.notes?.substring(0, 100) || 'No notes'}...
+            `;
+            
+            // Load notes using our fixed function
+            await window.loadNoteForProblem(problem);
+            updateStatus(`✅ Loaded: ${problem.title}`);
+        }
+        
+        function refreshProblems() {
+            loadProblems();
+        }
+        
+        function debugCurrentProblem() {
+            if (window.debugCurrentNotes) {
+                window.debugCurrentNotes();
+            } else {
+                console.log('Debug function not available');
+            }
+        }
+        
+        function reloadNotes() {
+            if (window.reloadCurrentNotes) {
+                window.reloadCurrentNotes();
+            } else {
+                console.log('Reload function not available');
+            }
+        }
+        
+        function saveNotes() {
+            if (window.saveCurrentNotes) {
+                window.saveCurrentNotes();
+            } else {
+                console.log('Save function not available');
+            }
+        }
+        
+        // Auto-load problems on page load
+        loadProblems();
+    </script>
+</body>
+</html>

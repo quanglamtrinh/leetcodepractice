@@ -2080,16 +2080,15 @@ app.post('/api/problems', async (req, res) => {
     // Insert the new problem
     const result = await pool.query(`
       INSERT INTO problems (
-        problem_id, title, concept, concept_id, difficulty, 
+        problem_id, title, concept, difficulty, 
         acceptance_rate, popularity, leetcode_link, solved, 
         notes, solution, similar_problems, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING *
     `, [
       problem_id || null,
       title,
       concept,
-      concept_id || concept.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
       difficulty.toLowerCase(),
       acceptance_rate || null,
       popularity || null,
