@@ -9,7 +9,14 @@
     "setup": "node setup-comprehensive-database.js",
     "test-db": "node -e \"require('./setup-comprehensive-database.js').testConnection().then(() => process.exit(0)).catch(() => process.exit(1))\"",
     "import-data": "curl -X POST http://localhost:3001/api/import-problems",
-    "health": "curl http://localhost:3001/api/health"
+    "health": "curl http://localhost:3001/api/health",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix",
+    "format": "prettier --write \"**/*.{js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,json,md}\"",
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed": "node scripts/seed-database.js",
+    "precommit": "npm run lint && npm run format:check"
   },
   "dependencies": {
     "ajv": "^8.17.1",
@@ -22,7 +29,9 @@
     "pg": "^8.16.3"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "eslint": "^8.57.0",
+    "nodemon": "^3.0.1",
+    "prettier": "^3.2.5"
   },
   "keywords": [
     "leetcode",
