@@ -103,11 +103,44 @@ The server will run on `http://localhost:3001`
 
 ## API Endpoints
 
-- `GET /api/problems` - Get all problems with progress
-- `GET /api/problems/concept/:concept` - Get problems by concept
-- `PUT /api/problems/:id/progress` - Update problem progress
-- `GET /api/stats` - Get progress statistics
-- `POST /api/import-problems` - Import problems from CSV
+### Quick Testing with curl
+
+```bash
+# Get all problems
+curl http://localhost:3001/api/problems | jq .
+
+# Get problems by concept (URL-encoded)
+curl "http://localhost:3001/api/problems/concept/Arrays%20%26%20Hashing" | jq .
+
+# Mark problem as solved
+curl -X PUT http://localhost:3001/api/problems/1/progress \
+  -H "Content-Type: application/json" \
+  -d '{"solved": true}'
+
+# Add notes to a problem
+curl -X PUT http://localhost:3001/api/problems/1/progress \
+  -H "Content-Type: application/json" \
+  -d '{"notes": "Used sliding window technique"}'
+
+# Get progress statistics
+curl http://localhost:3001/api/stats | jq .
+
+# Health check
+curl http://localhost:3001/api/health | jq .
+```
+
+### Endpoint Details
+
+| Method | Endpoint | Description | Request Body |
+|--------|----------|-------------|--------------|
+| GET | `/api/problems` | Get all problems with progress | - |
+| GET | `/api/problems/concept/:concept` | Get problems by concept | - |
+| PUT | `/api/problems/:id/progress` | Update problem progress | `{solved: boolean, notes: string}` |
+| GET | `/api/stats` | Get progress statistics | - |
+| POST | `/api/import-problems` | Import problems from CSV | - |
+| GET | `/api/health` | Health check endpoint | - |
+
+See [API Documentation](docs/API.md) for complete details.
 
 ## Frontend Integration
 
@@ -154,10 +187,113 @@ The frontend (`index.html`, `script.js`, `styles.css`) will need to be updated t
 - Change `PORT` in `.env` if 3001 is in use
 - Update frontend API calls if port changes
 
-## Next Steps
+## Deployment
 
-1. **User Authentication**: Add login system
-2. **Multiple Users**: Support multiple user accounts
-3. **Advanced Analytics**: Progress charts and insights
-4. **Problem Recommendations**: Suggest problems based on progress
-5. **Study Plans**: Create custom study schedules 
+### Docker (Recommended)
+
+```bash
+# Quick start with Docker Compose
+docker-compose up -d
+
+# Or build and run manually
+docker build -t leetcode-practice .
+docker run -p 3001:3001 --env-file .env leetcode-practice
+```
+
+### AWS Deployment
+
+Deploy to AWS using App Runner, ECS, or EC2. See [Deployment Guide](docs/DEPLOYMENT.md) for:
+
+- AWS App Runner setup (easiest, auto-HTTPS)
+- Amazon ECR image hosting
+- RDS PostgreSQL configuration
+- Environment variable management
+- CI/CD with GitHub Actions
+
+### Production Checklist
+
+- [ ] Set strong `DB_PASSWORD` in environment
+- [ ] Configure database backups
+- [ ] Set up monitoring and alerts
+- [ ] Enable HTTPS/SSL
+- [ ] Review security settings in `SECURITY.md`
+
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+
+- Commit message conventions (Conventional Commits)
+- Branch naming (feat/, fix/, chore/, docs/)
+- Pull request process
+- Code style and linting
+
+## Development Workflow
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Run linters
+npm run lint
+
+# Format code
+npm run format
+
+# Database operations
+npm run db:migrate   # Run migrations
+npm run db:seed      # Seed with CSV data
+```
+
+## Project Structure
+
+```
+├── client/              # React frontend
+├── server.js            # Express backend
+├── migrations/          # Database migrations
+├── scripts/             # Utility scripts
+├── data/                # CSV data files
+├── docs/                # Documentation
+├── .github/workflows/   # CI/CD pipelines
+└── comprehensive-schema.sql  # Database schema
+```
+
+## Screenshots
+
+<!-- TODO: Add screenshots of the application -->
+
+_Screenshots will be added soon showing:_
+- Problem list view
+- Problem detail with notes
+- Progress statistics dashboard
+
+## Roadmap
+
+### Current Features ✅
+
+- Problem browsing by concept
+- Progress tracking (solved/unsolved)
+- Personal notes system
+- Statistics dashboard
+- PostgreSQL persistence
+
+### Planned Features 🚀
+
+1. **User Authentication**: Multi-user support with login
+2. **Spaced Repetition**: Smart review scheduling
+3. **Advanced Analytics**: Progress charts and trends
+4. **Problem Recommendations**: AI-powered suggestions
+5. **Study Plans**: Custom learning paths
+6. **Discussion Forum**: Share solutions and tips
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/penguingm1/leetcodepractice/issues)
+- **Documentation**: See `/docs` directory
+- **API Reference**: [docs/API.md](docs/API.md)
