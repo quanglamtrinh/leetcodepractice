@@ -1943,11 +1943,13 @@ app.post('/api/problems/:id/similar/transitive', async (req, res) => {
 app.delete('/api/problems/:id/similar/transitive/:similarId', async (req, res) => {
   try {
     const { id, similarId } = req.params;
+    const problemIdInt = parseInt(id);
+    const similarIdInt = parseInt(similarId);
     
     // Check if both problems exist
     const problemCheck = await pool.query(`
       SELECT id, similar_problems FROM problems WHERE id = $1
-    `, [id]);
+    `, [problemIdInt]);
 
     if (problemCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Problem not found' });
@@ -1955,7 +1957,7 @@ app.delete('/api/problems/:id/similar/transitive/:similarId', async (req, res) =
 
     const similarProblemCheck = await pool.query(`
       SELECT id, similar_problems FROM problems WHERE id = $1
-    `, [similarId]);
+    `, [similarIdInt]);
 
     if (similarProblemCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Similar problem not found' });
@@ -1969,37 +1971,58 @@ app.delete('/api/problems/:id/similar/transitive/:similarId', async (req, res) =
     const problem2Similar = problem2.similar_problems || [];
 
     // Check if the relationship exists
-    if (!problem1Similar.includes(parseInt(similarId)) || !problem2Similar.includes(parseInt(id))) {
+    if (!problem1Similar.includes(similarIdInt) || !problem2Similar.includes(problemIdInt)) {
       return res.status(400).json({ error: 'Similar relationship does not exist' });
     }
 
-    // Find common similar problems between the two problems
+    // Find common similar problems (these are the problems that need to have their relationships updated)
     const commonSimilar = problem1Similar.filter(id1 => 
-      problem2Similar.includes(id1) && id1 !== parseInt(id) && id1 !== parseInt(similarId)
+      problem2Similar.includes(id1) && id1 !== problemIdInt && id1 !== similarIdInt
     );
 
+    console.log(`🔧 Removing relationship between ${problemIdInt} and ${similarIdInt}`);
+    console.log(`📋 Problem ${problemIdInt} similar list:`, problem1Similar);
+    console.log(`📋 Problem ${similarIdInt} similar list:`, problem2Similar);
+    console.log(`📋 Common similar problems:`, commonSimilar);
+
     // Remove the direct relationship
-    const problem1NewSimilar = problem1Similar.filter(id1 => id1 !== parseInt(similarId));
-    const problem2NewSimilar = problem2Similar.filter(id2 => id2 !== parseInt(id));
+    const problem1NewSimilar = problem1Similar.filter(id1 => id1 !== similarIdInt);
+    const problem2NewSimilar = problem2Similar.filter(id2 => id2 !== problemIdInt);
 
-    // For each common similar problem, remove the other problem from their similar list
-    // This breaks the transitive relationship
+    // For each common similar problem, we need to:
+    // 1. Remove problem1 from commonId's similar list
+    // 2. Remove problem2 from commonId's similar list
+    // 3. Remove the relationship between problem2 and commonId (from both sides)
     for (const commonId of commonSimilar) {
-      // Remove problem1 from commonId's similar list
-      await pool.query(`
-        UPDATE problems 
-        SET similar_problems = array_remove(similar_problems, $1),
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `, [id, commonId]);
-
-      // Remove problem2 from commonId's similar list
-      await pool.query(`
-        UPDATE problems 
-        SET similar_problems = array_remove(similar_problems, $1),
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `, [similarId, commonId]);
+      // Get the common problem's current similar list
+      const commonProblemResult = await pool.query(`
+        SELECT similar_problems FROM problems WHERE id = $1
+      `, [commonId]);
+      
+      if (commonProblemResult.rows.length > 0) {
+        const commonSimilarList = commonProblemResult.rows[0].similar_problems || [];
+        
+        // Remove both problem1 and problem2 from commonId's similar list
+        const updatedCommonList = commonSimilarList.filter(
+          pid => pid !== problemIdInt && pid !== similarIdInt
+        );
+        
+        await pool.query(`
+          UPDATE problems 
+          SET similar_problems = $1,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [updatedCommonList, commonId]);
+        
+        console.log(`✅ Updated problem ${commonId}: removed ${problemIdInt} and ${similarIdInt}`);
+      }
+      
+      // Also remove commonId from problem2's list (breaking the link between problem2 and common problems)
+      const indexInProblem2 = problem2NewSimilar.indexOf(commonId);
+      if (indexInProblem2 !== -1) {
+        problem2NewSimilar.splice(indexInProblem2, 1);
+        console.log(`✅ Removed ${commonId} from problem ${similarIdInt}'s similar list`);
+      }
     }
 
     // Update problem1 with its new similar problems (without the removed one)
@@ -2009,30 +2032,33 @@ app.delete('/api/problems/:id/similar/transitive/:similarId', async (req, res) =
           updated_at = CURRENT_TIMESTAMP
       WHERE id = $2
       RETURNING similar_problems
-    `, [problem1NewSimilar, id]);
+    `, [problem1NewSimilar, problemIdInt]);
 
-    // Update problem2 with its new similar problems (without the removed one)
+    // Update problem2 with its new similar problems (without the removed one and without common problems)
     const problem2Result = await pool.query(`
       UPDATE problems 
       SET similar_problems = $1,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = $2
       RETURNING similar_problems
-    `, [problem2NewSimilar, similarId]);
+    `, [problem2NewSimilar, similarIdInt]);
+
+    console.log(`✅ Final problem ${problemIdInt} similar list:`, problem1Result.rows[0].similar_problems);
+    console.log(`✅ Final problem ${similarIdInt} similar list:`, problem2Result.rows[0].similar_problems);
 
     res.json({ 
       message: 'Similar problems removed with transitive closure successfully',
       problem1_similar_problems: problem1Result.rows[0].similar_problems,
       problem2_similar_problems: problem2Result.rows[0].similar_problems,
       removed_relationships: {
-        problem1_id: id,
-        problem2_id: similarId,
+        problem1_id: problemIdInt,
+        problem2_id: similarIdInt,
         transitive_removals: {
           common_similar_problems: commonSimilar,
           removed_from_common: commonSimilar.map(commonId => ({
             problem_id: commonId,
-            removed_problem1: id,
-            removed_problem2: similarId
+            removed_problem1: problemIdInt,
+            removed_problem2: similarIdInt
           }))
         }
       }

@@ -3086,7 +3086,6 @@ body {
 .sidebar.collapsed .stats-section{
     display: none;
 }
-
 .main-content {
     flex: 1;
     padding: 40px;
@@ -3130,3 +3129,4 @@ body {
     transform: translateY(0);
     box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3);
 }
+
