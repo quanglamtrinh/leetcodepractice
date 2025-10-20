@@ -1,0 +1,51 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+README.md
+.env
+.env.*
+*.md
+.DS_Store
+.vscode
+.idea
+*.log
+dist
+build
+coverage
+.nyc_output
+.eslintcache
+
+# Test files
+test/
+tests/
+**/*.test.js
+**/*.spec.js
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+.DS_Store
+

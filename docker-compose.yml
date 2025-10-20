@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: leetcode-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-leetcode_practice}
+      POSTGRES_USER: ${DB_USER:-leetcodeuser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./comprehensive-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-leetcodeuser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - leetcode-network
+
+  # Application Server
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: leetcode-app
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-leetcode_practice}
+      DB_USER: ${DB_USER:-leetcodeuser}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+      PORT: 3001
+      NODE_ENV: production
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - leetcode-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  leetcode-network:
+    driver: bridge
+
