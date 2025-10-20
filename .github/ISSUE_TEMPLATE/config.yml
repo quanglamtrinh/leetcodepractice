@@ -1,0 +1,9 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or Discussion
+    url: https://github.com/penguingm1/leetcodepractice/discussions
+    about: Ask questions or start a discussion
+  - name: Documentation
+    url: https://github.com/penguingm1/leetcodepractice/tree/main/docs
+    about: Read the documentation
+
