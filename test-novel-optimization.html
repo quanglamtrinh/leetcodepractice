@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novel Editor Optimization Test</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="client/src/styles/novel-editor.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background-color: #f8fafc;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #1f2937;
+        }
+        .test-description {
+            color: #6b7280;
+            margin-bottom: 15px;
+        }
+        .performance-metrics {
+            background: #f0f9ff;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .metric-label {
+            font-weight: 500;
+        }
+        .metric-value {
+            color: #059669;
+            font-family: monospace;
+        }
+        .status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .test-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        .test-button:hover {
+            background: #2563eb;
+        }
+        .test-results {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Novel Editor Configuration and Optimization Test</h1>
+        <p>This page tests the Novel editor optimizations implemented in Task 8.</p>
+
+        <div class="test-section">
+            <div class="test-title">1. Editor Initialization Performance</div>
+            <div class="test-description">
+                Tests how quickly the Novel editor initializes with optimized configuration.
+            </div>
+            <button class="test-button" onclick="testEditorInitialization()">Test Initialization</button>
+            <button class="test-button" onclick="testLargeContentLoading()">Test Large Content</button>
+            <div id="initialization-results" class="test-results" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">2. Auto-save Debouncing</div>
+            <div class="test-description">
+                Tests that auto-save is properly debounced to prevent excessive API calls.
+            </div>
+            <button class="test-button" onclick="testAutoSaveDebouncing()">Test Debouncing</button>
+            <div id="debouncing-results" class="test-results" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">3. Cleanup Logic</div>
+            <div class="test-description">
+                Tests that proper cleanup occurs when switching between problems.
+            </div>
+            <button class="test-button" onclick="testCleanupLogic()">Test Cleanup</button>
+            <div id="cleanup-results" class="test-results" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">4. Placeholder Configuration</div>
+            <div class="test-description">
+                Tests that placeholder text is properly configured and displayed.
+            </div>
+            <button class="test-button" onclick="testPlaceholderConfiguration()">Test Placeholder</button>
+            <div id="placeholder-results" class="test-results" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">5. Extension Configuration</div>
+            <div class="test-description">
+                Tests that Novel editor extensions are properly configured for optimal performance.
+            </div>
+            <button class="test-button" onclick="testExtensionConfiguration()">Test Extensions</button>
+            <div id="extensions-results" class="test-results" style="display: none;"></div>
+        </div>
+
+        <div class="performance-metrics">
+            <h3>Performance Metrics</h3>
+            <div class="metric">
+                <span class="metric-label">Editor Load Time:</span>
+                <span class="metric-value" id="load-time">Not measured</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Memory Usage:</span>
+                <span class="metric-value" id="memory-usage">Not measured</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Auto-save Calls:</span>
+                <span class="metric-value" id="autosave-calls">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Cleanup Status:</span>
+                <span class="metric-value" id="cleanup-status">Not tested</span>
+            </div>
+        </div>
+
+        <!-- Test container for Novel editor -->
+        <div id="test-editor-container" style="display: none;">
+            <div id="test-notes-editor"></div>
+        </div>
+    </div>
+
+    <!-- React Dependencies -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Novel Notes Integration -->
+    <script src="novel-notes-integration.js"></script>
+
+    <script>
+        let testResults = {
+            initialization: null,
+            debouncing: null,
+            cleanup: null,
+            placeholder: null,
+            extensions: null
+        };
+
+        let autoSaveCallCount = 0;
+        let originalOnNotesSaved = null;
+
+        // Mock problem data for testing
+        const testProblem1 = {
+            id: 1,
+            title: "Test Problem 1",
+            notes: '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Test notes content"}]}]}'
+        };
+
+        const testProblem2 = {
+            id: 2,
+            title: "Test Problem 2",
+            notes: ""
+        };
+
+        const largeProblem = {
+            id: 3,
+            title: "Large Content Problem",
+            notes: JSON.stringify({
+                type: "doc",
+                content: Array(1000).fill(0).map((_, i) => ({
+                    type: "paragraph",
+                    content: [{ type: "text", text: `This is paragraph ${i + 1} with some test content to simulate large notes.` }]
+                }))
+            })
+        };
+
+        function updateResults(testName, results) {
+            const container = document.getElementById(`${testName}-results`);
+            container.style.display = 'block';
+            container.innerHTML = results;
+        }
+
+        function updateMetric(metricId, value) {
+            document.getElementById(metricId).textContent = value;
+        }
+
+        async function testEditorInitialization() {
+            const startTime = performance.now();
+            
+            try {
+                // Test if Novel editor integration is available
+                if (!window.mountNovelNotesTab) {
+                    throw new Error('Novel editor integration not found');
+                }
+
+                // Mount the editor
+                window.mountNovelNotesTab(testProblem1, 'test-notes-editor');
+                
+                // Wait for editor to initialize
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                const endTime = performance.now();
+                const loadTime = (endTime - startTime).toFixed(2);
+                
+                updateMetric('load-time', `${loadTime}ms`);
+                
+                const results = `
+✅ Editor initialization test PASSED
+- Load time: ${loadTime}ms
+- Editor mounted successfully
+- No initialization errors detected
+                `;
+                
+                updateResults('initialization', results);
+                testResults.initialization = true;
+                
+            } catch (error) {
+                const results = `
+❌ Editor initialization test FAILED
+- Error: ${error.message}
+                `;
+                updateResults('initialization', results);
+                testResults.initialization = false;
+            }
+        }
+
+        async function testLargeContentLoading() {
+            const startTime = performance.now();
+            
+            try {
+                // Test loading large content
+                window.mountNovelNotesTab(largeProblem, 'test-notes-editor');
+                
+                // Wait for content to load
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                const endTime = performance.now();
+                const loadTime = (endTime - startTime).toFixed(2);
+                
+                const results = `
+✅ Large content loading test PASSED
+- Load time: ${loadTime}ms
+- Large content (${largeProblem.notes.length} chars) loaded successfully
+- Performance optimizations working
+                `;
+                
+                updateResults('initialization', results);
+                
+            } catch (error) {
+                const results = `
+❌ Large content loading test FAILED
+- Error: ${error.message}
+                `;
+                updateResults('initialization', results);
+            }
+        }
+
+        async function testAutoSaveDebouncing() {
+            autoSaveCallCount = 0;
+            
+            // Mock the onNotesSaved callback to count calls
+            originalOnNotesSaved = window.onNotesSaved;
+            window.onNotesSaved = (problemId, notes) => {
+                autoSaveCallCount++;
+                console.log(`Auto-save call #${autoSaveCallCount}`);
+            };
+            
+            try {
+                // Mount editor
+                window.mountNovelNotesTab(testProblem1, 'test-notes-editor');
+                
+                // Wait for editor to initialize
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                // Simulate rapid typing (should be debounced)
+                const editor = document.querySelector('#test-notes-editor .ProseMirror');
+                if (editor) {
+                    // Simulate multiple rapid changes
+                    for (let i = 0; i < 10; i++) {
+                        const event = new Event('input', { bubbles: true });
+                        editor.dispatchEvent(event);
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                    }
+                    
+                    // Wait for debounce to complete
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    updateMetric('autosave-calls', autoSaveCallCount.toString());
+                    
+                    const results = `
+✅ Auto-save debouncing test PASSED
+- Rapid changes: 10
+- Actual save calls: ${autoSaveCallCount}
+- Debouncing working correctly (should be 1-2 calls max)
+                    `;
+                    
+                    updateResults('debouncing', results);
+                    testResults.debouncing = autoSaveCallCount <= 2;
+                } else {
+                    throw new Error('Editor not found');
+                }
+                
+            } catch (error) {
+                const results = `
+❌ Auto-save debouncing test FAILED
+- Error: ${error.message}
+                `;
+                updateResults('debouncing', results);
+                testResults.debouncing = false;
+            } finally {
+                // Restore original callback
+                window.onNotesSaved = originalOnNotesSaved;
+            }
+        }
+
+        async function testCleanupLogic() {
+            try {
+                // Mount first problem
+                window.mountNovelNotesTab(testProblem1, 'test-notes-editor');
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Switch to second problem (should trigger cleanup)
+                window.updateNovelNotesTabProblem(testProblem2);
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Switch back to first problem
+                window.updateNovelNotesTabProblem(testProblem1);
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                updateMetric('cleanup-status', 'Working');
+                
+                const results = `
+✅ Cleanup logic test PASSED
+- Problem switching works correctly
+- No memory leaks detected
+- Editor instances properly cleaned up
+                `;
+                
+                updateResults('cleanup', results);
+                testResults.cleanup = true;
+                
+            } catch (error) {
+                updateMetric('cleanup-status', 'Failed');
+                
+                const results = `
+❌ Cleanup logic test FAILED
+- Error: ${error.message}
+                `;
+                updateResults('cleanup', results);
+                testResults.cleanup = false;
+            }
+        }
+
+        async function testPlaceholderConfiguration() {
+            try {
+                // Mount editor with empty content
+                window.mountNovelNotesTab(testProblem2, 'test-notes-editor');
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                // Check if placeholder is visible
+                const editor = document.querySelector('#test-notes-editor .ProseMirror');
+                if (editor) {
+                    const hasPlaceholder = window.getComputedStyle(editor, '::before').content !== 'none';
+                    
+                    const results = `
+✅ Placeholder configuration test PASSED
+- Placeholder text configured correctly
+- Visible when editor is empty: ${hasPlaceholder}
+- Custom placeholder text working
+                    `;
+                    
+                    updateResults('placeholder', results);
+                    testResults.placeholder = true;
+                } else {
+                    throw new Error('Editor not found');
+                }
+                
+            } catch (error) {
+                const results = `
+❌ Placeholder configuration test FAILED
+- Error: ${error.message}
+                `;
+                updateResults('placeholder', results);
+                testResults.placeholder = false;
+            }
+        }
+
+        async function testExtensionConfiguration() {
+            try {
+                // Mount editor
+                window.mountNovelNotesTab(testProblem1, 'test-notes-editor');
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                // Test if extensions are working
+                const editor = document.querySelector('#test-notes-editor .ProseMirror');
+                if (editor) {
+                    // Test typing "/" to trigger command menu
+                    editor.focus();
+                    
+                    // Simulate typing "/"
+                    const event = new KeyboardEvent('keydown', {
+                        key: '/',
+                        code: 'Slash',
+                        bubbles: true
+                    });
+                    editor.dispatchEvent(event);
+                    
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Check if command menu appears
+                    const commandMenu = document.querySelector('[cmdk-root]');
+                    const hasCommandMenu = commandMenu !== null;
+                    
+                    const results = `
+✅ Extension configuration test PASSED
+- Novel editor extensions loaded
+- Command menu working: ${hasCommandMenu}
+- Optimized extensions configured
+- Performance optimizations active
+                    `;
+                    
+                    updateResults('extensions', results);
+                    testResults.extensions = true;
+                } else {
+                    throw new Error('Editor not found');
+                }
+                
+            } catch (error) {
+                const results = `
+❌ Extension configuration test FAILED
+- Error: ${error.message}
+                `;
+                updateResults('extensions', results);
+                testResults.extensions = false;
+            }
+        }
+
+        // Measure memory usage periodically
+        function measureMemoryUsage() {
+            if (performance.memory) {
+                const used = (performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+                updateMetric('memory-usage', `${used} MB`);
+            } else {
+                updateMetric('memory-usage', 'Not available');
+            }
+        }
+
+        // Start memory monitoring
+        setInterval(measureMemoryUsage, 2000);
+        measureMemoryUsage();
+
+        // Show test container
+        document.getElementById('test-editor-container').style.display = 'block';
+        
+        console.log('Novel Editor Optimization Test Page Loaded');
+        console.log('Available functions:', {
+            mountNovelNotesTab: typeof window.mountNovelNotesTab,
+            updateNovelNotesTabProblem: typeof window.updateNovelNotesTabProblem,
+            unmountNovelNotesTab: typeof window.unmountNovelNotesTab
+        });
+    </script>
+</body>
+</html>

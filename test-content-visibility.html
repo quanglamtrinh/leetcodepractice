@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novel Editor Content Visibility Test</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="client/src/styles/novel-editor.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background-color: #f8fafc;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+        }
+        .test-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .test-button:hover {
+            background: #2563eb;
+        }
+        .editor-container {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        .debug-info {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .status.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Novel Editor Content Visibility Test</h1>
+        <p>This page tests if content is properly visible in the Novel editor after recent changes.</p>
+
+        <div class="test-section">
+            <h3>Content Visibility Diagnostics</h3>
+            <button class="test-button" onclick="loadBasicEditor()">Load Basic Editor</button>
+            <button class="test-button" onclick="loadEditorWithContent()">Load Editor with Content</button>
+            <button class="test-button" onclick="debugContentVisibility()">Debug Content Visibility</button>
+            
+            <div id="visibility-editor" class="editor-container"></div>
+            <div id="debug-info" class="debug-info" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>CSS and DOM Inspection</h3>
+            <button class="test-button" onclick="inspectCSS()">Inspect CSS Properties</button>
+            <button class="test-button" onclick="inspectDOM()">Inspect DOM Structure</button>
+            <button class="test-button" onclick="testContentLoading()">Test Content Loading</button>
+            
+            <div id="inspection-results" class="debug-info" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Potential Issues Checklist</h3>
+            <div class="debug-info">
+                <h4>Common Causes of Invisible Content:</h4>
+                <ul>
+                    <li>CSS overflow properties hiding content</li>
+                    <li>Height/width constraints preventing display</li>
+                    <li>Content loading errors or failures</li>
+                    <li>JavaScript errors preventing rendering</li>
+                    <li>CSS z-index or positioning issues</li>
+                    <li>Color contrast issues (white text on white background)</li>
+                    <li>Display: none or visibility: hidden properties</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- React Dependencies -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Novel Notes Integration -->
+    <script src="novel-notes-integration.js"></script>
+
+    <script>
+        let testEditor = null;
+
+        function updateDebugInfo(info) {
+            const container = document.getElementById('debug-info');
+            container.style.display = 'block';
+            container.innerHTML = info;
+        }
+
+        function updateInspectionResults(results) {
+            const container = document.getElementById('inspection-results');
+            container.style.display = 'block';
+            container.innerHTML = results;
+        }
+
+        function loadBasicEditor() {
+            try {
+                if (!window.mountNovelNotesTab) {
+                    throw new Error('Novel editor integration not available');
+                }
+
+                const basicProblem = {
+                    id: 1,
+                    title: "Basic Test",
+                    notes: ""
+                };
+
+                window.mountNovelNotesTab(basicProblem, 'visibility-editor');
+                testEditor = true;
+
+                console.log('✅ Basic editor loaded');
+                
+                setTimeout(() => {
+                    debugContentVisibility();
+                }, 1000);
+
+            } catch (error) {
+                console.error('❌ Failed to load basic editor:', error);
+                updateDebugInfo(`<span class="status error">❌ Basic Editor Load Failed</span><br>Error: ${error.message}`);
+            }
+        }
+
+        function loadEditorWithContent() {
+            try {
+                const contentProblem = {
+                    id: 2,
+                    title: "Content Test",
+                    notes: JSON.stringify({
+                        type: "doc",
+                        content: [
+                            {
+                                type: "heading",
+                                attrs: { level: 1 },
+                                content: [{ type: "text", text: "Test Content" }]
+                            },
+                            {
+                                type: "paragraph",
+                                content: [{ type: "text", text: "This is test content to verify visibility. If you can see this text, the editor is working correctly." }]
+                            },
+                            {
+                                type: "paragraph",
+                                content: [{ type: "text", text: "Additional paragraph to test scrolling and content display." }]
+                            }
+                        ]
+                    })
+                };
+
+                window.mountNovelNotesTab(contentProblem, 'visibility-editor');
+                testEditor = true;
+
+                console.log('✅ Editor with content loaded');
+                
+                setTimeout(() => {
+                    debugContentVisibility();
+                }, 1000);
+
+            } catch (error) {
+                console.error('❌ Failed to load editor with content:', error);
+                updateDebugInfo(`<span class="status error">❌ Content Editor Load Failed</span><br>Error: ${error.message}`);
+            }
+        }
+
+        function debugContentVisibility() {
+            const editorContainer = document.querySelector('#visibility-editor');
+            const novelContainer = editorContainer?.querySelector('.novel-editor-container');
+            const proseMirror = editorContainer?.querySelector('.ProseMirror');
+
+            if (!editorContainer) {
+                updateDebugInfo(`<span class="status error">❌ Editor Container Not Found</span><br>The editor container element is missing from the DOM.`);
+                return;
+            }
+
+            if (!novelContainer) {
+                updateDebugInfo(`<span class="status error">❌ Novel Container Not Found</span><br>The .novel-editor-container element is missing.`);
+                return;
+            }
+
+            if (!proseMirror) {
+                updateDebugInfo(`<span class="status error">❌ ProseMirror Not Found</span><br>The .ProseMirror element is missing.`);
+                return;
+            }
+
+            // Check visibility properties
+            const containerStyle = window.getComputedStyle(novelContainer);
+            const proseMirrorStyle = window.getComputedStyle(proseMirror);
+
+            const containerVisible = containerStyle.display !== 'none' && containerStyle.visibility !== 'hidden';
+            const proseMirrorVisible = proseMirrorStyle.display !== 'none' && proseMirrorStyle.visibility !== 'hidden';
+
+            const hasContent = proseMirror.textContent && proseMirror.textContent.trim().length > 0;
+            const contentLength = proseMirror.textContent ? proseMirror.textContent.length : 0;
+
+            const debugInfo = `
+<span class="status ${containerVisible && proseMirrorVisible && hasContent ? 'success' : 'warning'}">
+${containerVisible && proseMirrorVisible && hasContent ? '✅' : '⚠️'} Content Visibility Debug
+</span>
+
+<strong>Container Status:</strong>
+- Container found: ${novelContainer ? 'Yes' : 'No'}
+- Container visible: ${containerVisible ? 'Yes' : 'No'}
+- Container display: ${containerStyle.display}
+- Container visibility: ${containerStyle.visibility}
+- Container height: ${containerStyle.height}
+- Container overflow: ${containerStyle.overflow}
+
+<strong>ProseMirror Status:</strong>
+- ProseMirror found: ${proseMirror ? 'Yes' : 'No'}
+- ProseMirror visible: ${proseMirrorVisible ? 'Yes' : 'No'}
+- ProseMirror display: ${proseMirrorStyle.display}
+- ProseMirror visibility: ${proseMirrorStyle.visibility}
+- ProseMirror height: ${proseMirrorStyle.height}
+- ProseMirror color: ${proseMirrorStyle.color}
+
+<strong>Content Status:</strong>
+- Has content: ${hasContent ? 'Yes' : 'No'}
+- Content length: ${contentLength} characters
+- Text content: "${proseMirror.textContent?.substring(0, 100) || 'No content'}"
+
+<strong>Recommendations:</strong>
+${!containerVisible ? '- Container is not visible (check CSS display/visibility)' : ''}
+${!proseMirrorVisible ? '- ProseMirror is not visible (check CSS display/visibility)' : ''}
+${!hasContent ? '- No content detected (check content loading)' : ''}
+${proseMirrorStyle.color === 'rgb(255, 255, 255)' ? '- Text color might be white (invisible on white background)' : ''}
+            `;
+
+            updateDebugInfo(debugInfo);
+        }
+
+        function inspectCSS() {
+            const novelContainer = document.querySelector('#visibility-editor .novel-editor-container');
+            const proseMirror = document.querySelector('#visibility-editor .ProseMirror');
+
+            if (!novelContainer || !proseMirror) {
+                updateInspectionResults(`<span class="status error">❌ Elements Not Found</span><br>Cannot inspect CSS - elements not found.`);
+                return;
+            }
+
+            const containerStyle = window.getComputedStyle(novelContainer);
+            const proseMirrorStyle = window.getComputedStyle(proseMirror);
+
+            const results = `
+<span class="status success">✅ CSS Inspection Results</span>
+
+<strong>Container CSS Properties:</strong>
+- display: ${containerStyle.display}
+- visibility: ${containerStyle.visibility}
+- opacity: ${containerStyle.opacity}
+- overflow: ${containerStyle.overflow}
+- height: ${containerStyle.height}
+- max-height: ${containerStyle.maxHeight}
+- position: ${containerStyle.position}
+- z-index: ${containerStyle.zIndex}
+
+<strong>ProseMirror CSS Properties:</strong>
+- display: ${proseMirrorStyle.display}
+- visibility: ${proseMirrorStyle.visibility}
+- opacity: ${proseMirrorStyle.opacity}
+- color: ${proseMirrorStyle.color}
+- background: ${proseMirrorStyle.backgroundColor}
+- height: ${proseMirrorStyle.height}
+- width: ${proseMirrorStyle.width}
+- padding: ${proseMirrorStyle.padding}
+- font-size: ${proseMirrorStyle.fontSize}
+
+<strong>Potential Issues:</strong>
+${containerStyle.display === 'none' ? '⚠️ Container has display: none' : ''}
+${proseMirrorStyle.display === 'none' ? '⚠️ ProseMirror has display: none' : ''}
+${containerStyle.visibility === 'hidden' ? '⚠️ Container has visibility: hidden' : ''}
+${proseMirrorStyle.visibility === 'hidden' ? '⚠️ ProseMirror has visibility: hidden' : ''}
+${containerStyle.opacity === '0' ? '⚠️ Container has opacity: 0' : ''}
+${proseMirrorStyle.opacity === '0' ? '⚠️ ProseMirror has opacity: 0' : ''}
+${proseMirrorStyle.color === proseMirrorStyle.backgroundColor ? '⚠️ Text color matches background' : ''}
+            `;
+
+            updateInspectionResults(results);
+        }
+
+        function inspectDOM() {
+            const editorContainer = document.querySelector('#visibility-editor');
+            
+            if (!editorContainer) {
+                updateInspectionResults(`<span class="status error">❌ DOM Inspection Failed</span><br>Editor container not found.`);
+                return;
+            }
+
+            const innerHTML = editorContainer.innerHTML;
+            const hasNovelContainer = innerHTML.includes('novel-editor-container');
+            const hasProseMirror = innerHTML.includes('ProseMirror');
+            const hasContent = innerHTML.includes('data-') || innerHTML.includes('contenteditable');
+
+            const results = `
+<span class="status ${hasNovelContainer && hasProseMirror ? 'success' : 'error'}">
+${hasNovelContainer && hasProseMirror ? '✅' : '❌'} DOM Structure Inspection
+</span>
+
+<strong>DOM Elements:</strong>
+- Has novel-editor-container: ${hasNovelContainer ? 'Yes' : 'No'}
+- Has ProseMirror: ${hasProseMirror ? 'Yes' : 'No'}
+- Has content attributes: ${hasContent ? 'Yes' : 'No'}
+- Container children: ${editorContainer.children.length}
+
+<strong>HTML Structure (first 500 chars):</strong>
+<pre>${innerHTML.substring(0, 500)}${innerHTML.length > 500 ? '...' : ''}</pre>
+
+<strong>React Components:</strong>
+- React version: ${typeof React !== 'undefined' ? React.version : 'Not loaded'}
+- Novel integration: ${typeof window.mountNovelNotesTab !== 'undefined' ? 'Available' : 'Not available'}
+            `;
+
+            updateInspectionResults(results);
+        }
+
+        function testContentLoading() {
+            // Test with different content formats
+            const testCases = [
+                {
+                    name: "Empty content",
+                    notes: ""
+                },
+                {
+                    name: "Plain text",
+                    notes: "Simple plain text content"
+                },
+                {
+                    name: "JSON content",
+                    notes: JSON.stringify({
+                        type: "doc",
+                        content: [
+                            {
+                                type: "paragraph",
+                                content: [{ type: "text", text: "JSON formatted content" }]
+                            }
+                        ]
+                    })
+                }
+            ];
+
+            let results = `<span class="status success">✅ Content Loading Test</span>\n\n`;
+
+            testCases.forEach((testCase, index) => {
+                try {
+                    const testProblem = {
+                        id: index + 10,
+                        title: testCase.name,
+                        notes: testCase.notes
+                    };
+
+                    // Test content conversion
+                    if (typeof window.BackwardCompatibilityConverter !== 'undefined') {
+                        const converted = window.BackwardCompatibilityConverter.convertToNovelFormat(testCase.notes);
+                        results += `${testCase.name}: ✅ Converted successfully\n`;
+                        results += `  Content type: ${converted.type}\n`;
+                        results += `  Has content: ${converted.content && converted.content.length > 0 ? 'Yes' : 'No'}\n\n`;
+                    } else {
+                        results += `${testCase.name}: ⚠️ Converter not available\n\n`;
+                    }
+                } catch (error) {
+                    results += `${testCase.name}: ❌ Error - ${error.message}\n\n`;
+                }
+            });
+
+            updateInspectionResults(results);
+        }
+
+        // Auto-load basic editor
+        setTimeout(() => {
+            loadBasicEditor();
+        }, 1000);
+
+        console.log('Content Visibility Test Page Loaded');
+    </script>
+</body>
+</html>

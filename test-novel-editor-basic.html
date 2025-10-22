@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basic Novel Editor Test</title>
+    <link rel="stylesheet" href="novel-editor.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+        }
+        .status {
+            padding: 12px;
+            margin: 12px 0;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        .success { background: #dcfce7; color: #166534; }
+        .error { background: #fee2e2; color: #991b1b; }
+        .info { background: #dbeafe; color: #1e40af; }
+        #editor-container {
+            min-height: 300px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Basic Novel Editor Test</h1>
+        <p>This test checks if the Novel editor can render at all.</p>
+
+        <div class="test-section">
+            <h3>Dependencies Check</h3>
+            <div id="deps-status" class="status info">Checking dependencies...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>Editor Container</h3>
+            <div id="editor-container">
+                <p>Editor will be rendered here...</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test Results</h3>
+            <div id="test-status" class="status info">Test not started</div>
+            <button onclick="runBasicTest()" style="padding: 12px 24px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                Run Test
+            </button>
+        </div>
+    </div>
+
+    <!-- React and ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Novel Notes Integration -->
+    <script src="novel-notes-integration.js"></script>
+
+    <script>
+        function checkDependencies() {
+            const deps = {
+                React: typeof React !== 'undefined',
+                ReactDOM: typeof ReactDOM !== 'undefined',
+                createRoot: typeof ReactDOM.createRoot === 'function',
+                novelIntegration: typeof window.NovelNotesIntegration !== 'undefined'
+            };
+
+            const depsStatus = document.getElementById('deps-status');
+            const allGood = Object.values(deps).every(d => d);
+            
+            depsStatus.innerHTML = Object.entries(deps)
+                .map(([name, available]) => `${available ? '✅' : '❌'} ${name}: ${available}`)
+                .join('<br>');
+            
+            depsStatus.className = `status ${allGood ? 'success' : 'error'}`;
+            
+            return deps;
+        }
+
+        function runBasicTest() {
+            const testStatus = document.getElementById('test-status');
+            testStatus.textContent = '🔄 Running basic test...';
+            testStatus.className = 'status info';
+
+            try {
+                // Check dependencies first
+                const deps = checkDependencies();
+                
+                if (!deps.React || !deps.ReactDOM) {
+                    throw new Error('React dependencies not loaded');
+                }
+
+                // Try to create a simple React component
+                const container = document.getElementById('editor-container');
+                container.innerHTML = '';
+
+                // Create a simple test component
+                const TestComponent = React.createElement('div', {
+                    style: { padding: '20px', background: '#f0f9ff', border: '1px solid #3b82f6', borderRadius: '6px' }
+                }, [
+                    React.createElement('h4', { key: 'title' }, '✅ React is working!'),
+                    React.createElement('p', { key: 'desc' }, 'This component was rendered using React.createElement'),
+                    React.createElement('p', { key: 'next' }, 'Next: Testing Novel editor components...')
+                ]);
+
+                // Try to render it
+                const root = ReactDOM.createRoot(container);
+                root.render(TestComponent);
+
+                // Check if Novel components are available
+                setTimeout(() => {
+                    try {
+                        // Check if the novel integration exports anything useful
+                        console.log('Novel integration object:', window.NovelNotesIntegration);
+                        
+                        // Try to access Novel components
+                        let novelComponents = {};
+                        if (window.NovelNotesIntegration) {
+                            novelComponents = window.NovelNotesIntegration;
+                        }
+
+                        console.log('Available Novel components:', Object.keys(novelComponents));
+
+                        testStatus.textContent = '✅ Basic React test passed! Check console for Novel component details.';
+                        testStatus.className = 'status success';
+
+                        // Try to render a more complex component that mimics NovelNotesTab structure
+                        const ComplexTestComponent = React.createElement('div', {
+                            className: 'novel-notes-tab',
+                            style: { padding: '20px' }
+                        }, [
+                            React.createElement('div', { 
+                                key: 'header',
+                                style: { marginBottom: '16px', padding: '12px', background: '#f8fafc', borderRadius: '6px' }
+                            }, [
+                                React.createElement('h4', { key: 'title' }, '📝 Novel Notes Tab Test'),
+                                React.createElement('p', { key: 'desc' }, 'Testing component structure similar to NovelNotesTab')
+                            ]),
+                            React.createElement('div', {
+                                key: 'editor-area',
+                                className: 'novel-editor-container',
+                                style: { 
+                                    minHeight: '200px', 
+                                    border: '1px solid #e5e7eb', 
+                                    borderRadius: '8px',
+                                    padding: '16px',
+                                    background: 'white'
+                                }
+                            }, [
+                                React.createElement('div', {
+                                    key: 'placeholder',
+                                    style: { color: '#9ca3af', fontStyle: 'italic' }
+                                }, "This is where the Novel editor would render...")
+                            ])
+                        ]);
+
+                        root.render(ComplexTestComponent);
+
+                    } catch (error) {
+                        testStatus.textContent = `❌ Error during extended test: ${error.message}`;
+                        testStatus.className = 'status error';
+                        console.error('Extended test error:', error);
+                    }
+                }, 500);
+
+            } catch (error) {
+                testStatus.textContent = `❌ Basic test failed: ${error.message}`;
+                testStatus.className = 'status error';
+                console.error('Basic test error:', error);
+            }
+        }
+
+        // Auto-run dependency check on load
+        window.addEventListener('load', () => {
+            checkDependencies();
+        });
+    </script>
+</body>
+</html>

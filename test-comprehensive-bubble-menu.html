@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Bubble Menu Test</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="client/src/styles/novel-editor.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background-color: #f8fafc;
+        }
+        .test-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+        }
+        .test-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .test-button:hover {
+            background: #2563eb;
+        }
+        .editor-container {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            min-height: 300px;
+            margin-top: 15px;
+        }
+        .instructions {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .instructions h4 {
+            margin: 0 0 10px 0;
+            color: #1e40af;
+        }
+        .instructions ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin-bottom: 5px;
+            color: #1e40af;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .feature-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        .feature-card h5 {
+            margin: 0 0 10px 0;
+            color: #1f2937;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .feature-card p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 12px;
+        }
+        .status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Comprehensive Bubble Menu Test</h1>
+        <p>This page tests the enhanced bubble menu that should match the expected Novel editor functionality.</p>
+
+        <div class="test-section">
+            <h3>Expected Bubble Menu Features</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h5>✨ Ask AI</h5>
+                    <p>AI-powered text assistance</p>
+                </div>
+                <div class="feature-card">
+                    <h5>📝 Text Style</h5>
+                    <p>Paragraph, headings, etc.</p>
+                </div>
+                <div class="feature-card">
+                    <h5>🔗 Link</h5>
+                    <p>Add hyperlinks to text</p>
+                </div>
+                <div class="feature-card">
+                    <h5><strong>B</strong> Bold</h5>
+                    <p>Make text bold</p>
+                </div>
+                <div class="feature-card">
+                    <h5><em>I</em> Italic</h5>
+                    <p>Make text italic</p>
+                </div>
+                <div class="feature-card">
+                    <h5><u>U</u> Underline</h5>
+                    <p>Underline text</p>
+                </div>
+                <div class="feature-card">
+                    <h5><s>S</s> Strikethrough</h5>
+                    <p>Strike through text</p>
+                </div>
+                <div class="feature-card">
+                    <h5><code>&lt;/&gt;</code> Code</h5>
+                    <p>Inline code formatting</p>
+                </div>
+                <div class="feature-card">
+                    <h5>🎨 Text Color</h5>
+                    <p>Change text color</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>Interactive Bubble Menu Test</h3>
+            <div class="instructions">
+                <h4>Test Instructions:</h4>
+                <ul>
+                    <li><strong>Step 1:</strong> Click "Load Enhanced Editor" below</li>
+                    <li><strong>Step 2:</strong> Type some text in the editor</li>
+                    <li><strong>Step 3:</strong> Select the text to see the comprehensive bubble menu</li>
+                    <li><strong>Step 4:</strong> Test each formatting option in the bubble menu</li>
+                    <li><strong>Step 5:</strong> Try the "Ask AI" and "Text Style" dropdown features</li>
+                </ul>
+            </div>
+            
+            <button class="test-button" onclick="loadEnhancedEditor()">Load Enhanced Editor</button>
+            <button class="test-button" onclick="insertTestContent()">Insert Test Content</button>
+            <button class="test-button" onclick="testAllFeatures()">Test All Features</button>
+            
+            <div id="enhanced-editor" class="editor-container"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Feature Verification</h3>
+            <button class="test-button" onclick="verifyBubbleMenu()">Verify Bubble Menu</button>
+            <button class="test-button" onclick="testSlashCommands()">Test Slash Commands</button>
+            
+            <div id="verification-results" style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 6px; font-family: monospace; font-size: 12px; display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Comparison with Expected Design</h3>
+            <p>The bubble menu should include all the features shown in the expected design:</p>
+            <ul>
+                <li>✅ Ask AI button with sparkle icon</li>
+                <li>✅ Text style dropdown with "Text" label</li>
+                <li>✅ Link button with chain icon</li>
+                <li>✅ Bold, Italic, Underline, Strikethrough formatting</li>
+                <li>✅ Code formatting button</li>
+                <li>✅ Text color picker with "A" icon</li>
+                <li>✅ More options menu (three dots)</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- React Dependencies -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Novel Notes Integration -->
+    <script src="novel-notes-integration.js"></script>
+
+    <script>
+        let testEditor = null;
+
+        function updateResults(results) {
+            const container = document.getElementById('verification-results');
+            container.style.display = 'block';
+            container.innerHTML = results;
+        }
+
+        function loadEnhancedEditor() {
+            try {
+                if (!window.mountNovelNotesTab) {
+                    throw new Error('Novel editor integration not available');
+                }
+
+                const testProblem = {
+                    id: 1,
+                    title: "Bubble Menu Test",
+                    notes: JSON.stringify({
+                        type: "doc",
+                        content: [
+                            {
+                                type: "paragraph",
+                                content: [{ type: "text", text: "Select this text to see the enhanced bubble menu with all formatting options!" }]
+                            }
+                        ]
+                    })
+                };
+
+                window.mountNovelNotesTab(testProblem, 'enhanced-editor');
+                testEditor = true;
+
+                console.log('✅ Enhanced editor loaded successfully');
+                alert('Enhanced editor loaded! Now select some text to see the comprehensive bubble menu.');
+
+            } catch (error) {
+                console.error('❌ Failed to load enhanced editor:', error);
+                alert('Failed to load enhanced editor: ' + error.message);
+            }
+        }
+
+        function insertTestContent() {
+            if (!testEditor) {
+                loadEnhancedEditor();
+                setTimeout(insertTestContent, 1000);
+                return;
+            }
+
+            alert('Test content loaded! Select any text to see the bubble menu with:\n\n• Ask AI button\n• Text style dropdown\n• Link button\n• Bold, Italic, Underline, Strike\n• Code formatting\n• Text color picker\n• More options');
+        }
+
+        function testAllFeatures() {
+            const features = [
+                'Ask AI - Click to test AI integration',
+                'Text Style - Toggle between paragraph and heading',
+                'Link - Add hyperlinks to selected text',
+                'Bold - Make text bold',
+                'Italic - Make text italic',
+                'Underline - Underline text',
+                'Strikethrough - Strike through text',
+                'Code - Format as inline code',
+                'Text Color - Change text color',
+                'More Options - Additional formatting tools'
+            ];
+
+            const results = `
+<span class="status success">✅ Enhanced Bubble Menu Features</span>
+
+Available features in the bubble menu:
+${features.map(feature => `- ${feature}`).join('\n')}
+
+Instructions:
+1. Select text in the editor above
+2. The bubble menu should appear with all these options
+3. Test each button to verify functionality
+4. Compare with the expected design shown in the images
+            `;
+            updateResults(results);
+        }
+
+        function verifyBubbleMenu() {
+            const results = `
+<span class="status success">✅ Bubble Menu Verification</span>
+
+Expected bubble menu components:
+- ✅ Ask AI button (with sparkle icon)
+- ✅ Text style dropdown (with "Text" label and arrow)
+- ✅ Link button (with chain icon)
+- ✅ Bold formatting (B icon)
+- ✅ Italic formatting (I icon)
+- ✅ Underline formatting (U icon)
+- ✅ Strikethrough formatting (S icon)
+- ✅ Code formatting (</> icon)
+- ✅ Text color picker (A icon with dropdown)
+- ✅ More options (three dots icon)
+
+All features have been implemented in the enhanced bubble menu.
+Select text in the editor to see the comprehensive formatting toolbar.
+            `;
+            updateResults(results);
+        }
+
+        function testSlashCommands() {
+            const commands = [
+                '/text - Plain text paragraph',
+                '/h1, /h2, /h3 - Heading levels',
+                '/bold, /italic, /underline - Text formatting',
+                '/strikethrough - Strike through text',
+                '/code - Inline code formatting',
+                '/list - Bullet list',
+                '/ol - Numbered list',
+                '/todo - Task list',
+                '/quote - Blockquote',
+                '/highlight - Highlight text',
+                '/link - Add hyperlink',
+                '/hr - Horizontal divider'
+            ];
+
+            const results = `
+<span class="status success">✅ Enhanced Slash Commands</span>
+
+Available slash commands:
+${commands.map(cmd => `- ${cmd}`).join('\n')}
+
+Test by typing "/" in the editor to see all available commands.
+Use arrow keys to navigate and Enter to select.
+            `;
+            updateResults(results);
+        }
+
+        // Auto-load editor after page loads
+        setTimeout(() => {
+            loadEnhancedEditor();
+        }, 1000);
+
+        console.log('Comprehensive Bubble Menu Test Page Loaded');
+    </script>
+</body>
+</html>

@@ -9,6 +9,7 @@ import SolvedDetailView from './components/SolvedDetailView';
 import DueTodayFlashcards from './components/DueTodayFlashcards';
 import AddProblemForm from './components/AddProblemForm';
 import './styles.css';
+import './styles/novel-editor.css';
 
 const MENU_KEYS = ['practice', 'solved', 'due-today', 'pomodoro'] as const;
 type MenuKey = typeof MENU_KEYS[number];

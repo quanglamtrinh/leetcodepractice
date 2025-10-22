@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Notes Tab Test</title>
+    <link rel="stylesheet" href="novel-editor.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .tab-content {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            min-height: 400px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .tab-content.active {
+            display: flex;
+        }
+        .notes-tabs {
+            display: flex;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 16px;
+        }
+        .tab-btn {
+            padding: 8px 16px;
+            border: none;
+            background: #f9fafb;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-btn.active {
+            background: #ffffff;
+            border-bottom-color: #3b82f6;
+            color: #3b82f6;
+        }
+        .status {
+            padding: 12px;
+            margin: 12px 0;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        .success { background: #dcfce7; color: #166534; }
+        .error { background: #fee2e2; color: #991b1b; }
+        .info { background: #dbeafe; color: #1e40af; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Simple Notes Tab Test</h1>
+        <p>This test uses a simplified version of NovelNotesTab to isolate the mounting issue.</p>
+
+        <div class="notes-tabs">
+            <button class="tab-btn active" data-tab="notes">📝 Notes</button>
+            <button class="tab-btn" data-tab="solution">💻 Solution</button>
+        </div>
+
+        <!-- Notes Tab -->
+        <div class="tab-content active" id="notes-tab">
+            <p>Original content - this should be replaced by the simple notes component</p>
+        </div>
+
+        <!-- Solution Tab -->
+        <div class="tab-content" id="solution-tab">
+            <p>Solution content (not affected by test)</p>
+        </div>
+
+        <div id="test-status" class="status info">Test not started</div>
+        
+        <button onclick="runSimpleTest()" style="padding: 12px 24px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; margin-right: 12px;">
+            Run Test
+        </button>
+    </div>
+
+    <!-- React and ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <script>
+        // Simple Notes Tab Component (no Novel dependencies)
+        function SimpleNotesTab({ problem, onNotesSaved, className }) {
+            const [notes, setNotes] = React.useState(problem.notes || '');
+            const [status, setStatus] = React.useState('');
+
+            const handleNotesChange = (e) => {
+                const newNotes = e.target.value;
+                setNotes(newNotes);
+                setStatus('Modified');
+            };
+
+            const handleSave = () => {
+                setStatus('Saving...');
+                // Simulate save
+                setTimeout(() => {
+                    setStatus('Saved');
+                    if (onNotesSaved) {
+                        onNotesSaved(problem.id, notes);
+                    }
+                }, 500);
+            };
+
+            return React.createElement('div', {
+                className: `novel-notes-tab ${className || ''}`,
+                style: { display: 'flex', flexDirection: 'column', height: '100%' }
+            }, [
+                // Header
+                React.createElement('div', {
+                    key: 'header',
+                    style: { 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        marginBottom: '16px',
+                        padding: '12px',
+                        background: '#f8fafc',
+                        borderRadius: '6px'
+                    }
+                }, [
+                    React.createElement('h3', { key: 'title' }, `📝 Notes for: ${problem.title}`),
+                    React.createElement('div', { key: 'actions', style: { display: 'flex', gap: '8px' } }, [
+                        React.createElement('span', { 
+                            key: 'status',
+                            style: { 
+                                fontSize: '14px', 
+                                color: status.includes('Saved') ? '#059669' : '#6b7280',
+                                marginRight: '8px'
+                            }
+                        }, status),
+                        React.createElement('button', {
+                            key: 'save',
+                            onClick: handleSave,
+                            style: {
+                                padding: '6px 12px',
+                                background: '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }
+                        }, 'Save')
+                    ])
+                ]),
+                // Editor Area
+                React.createElement('div', {
+                    key: 'editor',
+                    style: { flex: 1, display: 'flex', flexDirection: 'column' }
+                }, [
+                    React.createElement('textarea', {
+                        key: 'textarea',
+                        value: notes,
+                        onChange: handleNotesChange,
+                        placeholder: "Write your notes here...",
+                        style: {
+                            flex: 1,
+                            width: '100%',
+                            padding: '16px',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            resize: 'none',
+                            fontFamily: 'inherit',
+                            fontSize: '14px',
+                            lineHeight: '1.6'
+                        }
+                    })
+                ])
+            ]);
+        }
+
+        // Tab switching functionality
+        document.querySelectorAll('.tab-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const targetTab = this.getAttribute('data-tab');
+                
+                // Remove active class from all tabs and contents
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                
+                // Add active class to clicked tab and corresponding content
+                this.classList.add('active');
+                document.getElementById(`${targetTab}-tab`).classList.add('active');
+            });
+        });
+
+        function runSimpleTest() {
+            const testStatus = document.getElementById('test-status');
+            testStatus.textContent = '🔄 Running simple test...';
+            testStatus.className = 'status info';
+
+            try {
+                // Test problem data
+                const testProblem = {
+                    id: 999,
+                    title: 'Simple Test Problem',
+                    difficulty: 'Easy',
+                    notes: 'This is some existing notes content for testing.'
+                };
+
+                // Get the notes tab container
+                const notesTab = document.getElementById('notes-tab');
+                if (!notesTab) {
+                    throw new Error('notes-tab container not found');
+                }
+
+                // Check initial state
+                const initialDisplay = window.getComputedStyle(notesTab).display;
+                console.log('Initial container display:', initialDisplay);
+
+                if (initialDisplay === 'none') {
+                    throw new Error('Container is initially hidden');
+                }
+
+                // Clear container and mount React component
+                notesTab.innerHTML = '';
+                
+                // Ensure container has proper styles
+                notesTab.style.display = 'flex';
+                notesTab.style.flexDirection = 'column';
+
+                // Create React root and render
+                const root = ReactDOM.createRoot(notesTab);
+                
+                const handleNotesSaved = (problemId, notes) => {
+                    console.log('Notes saved:', problemId, notes);
+                };
+
+                root.render(React.createElement(SimpleNotesTab, {
+                    problem: testProblem,
+                    onNotesSaved: handleNotesSaved,
+                    className: 'novel-notes-integration'
+                }));
+
+                // Check after rendering
+                setTimeout(() => {
+                    const postRenderState = {
+                        display: window.getComputedStyle(notesTab).display,
+                        childrenCount: notesTab.children.length,
+                        hasContent: notesTab.textContent.length > 0,
+                        height: notesTab.offsetHeight
+                    };
+
+                    console.log('Post-render state:', postRenderState);
+
+                    if (postRenderState.childrenCount > 0 && postRenderState.hasContent) {
+                        testStatus.textContent = '✅ Simple test PASSED! React component mounted and displaying correctly.';
+                        testStatus.className = 'status success';
+                        
+                        console.log('✅ Simple test successful - React mounting works');
+                        console.log('💡 The issue is likely with Novel editor components, not React mounting');
+                    } else {
+                        testStatus.textContent = '❌ Simple test FAILED! Component not rendering properly.';
+                        testStatus.className = 'status error';
+                    }
+                }, 500);
+
+            } catch (error) {
+                testStatus.textContent = `❌ Simple test FAILED: ${error.message}`;
+                testStatus.className = 'status error';
+                console.error('Simple test error:', error);
+            }
+        }
+
+        // Auto-run test after page loads
+        window.addEventListener('load', () => {
+            setTimeout(runSimpleTest, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Novel Integration</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .notes-tab { border: 1px solid #ccc; border-radius: 5px; padding: 10px; min-height: 300px; }
+        .notes-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #eee; }
+        .notes-actions { display: flex; align-items: center; }
+        button { margin-left: 5px; }
+        #log { background: #f5f5f5; padding: 10px; border-radius: 3px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Novel Notes Integration Test</h1>
+        
+        <div class="test-section">
+            <h2>Integration Status</h2>
+            <div id="status">Checking...</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test Problem</h2>
+            <button onclick="loadTestProblem()">Load Test Problem</button>
+            <button onclick="loadProblemWithNotes()">Load Problem with Existing Notes</button>
+            <button onclick="loadProblemWithBlocks()">Load Problem with Block Format</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>Notes Tab</h2>
+            <div id="notes-tab" class="notes-tab">
+                <p>Click "Load Test Problem" to initialize the Novel notes editor here.</p>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Console Log</h2>
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <!-- React Dependencies -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Novel Notes Integration -->
+    <script src="novel-notes-integration.js"></script>
+    
+    <script>
+        // Override console.log to show in the page
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        function addToLog(message, type = 'log') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.style.color = type === 'error' ? 'red' : type === 'warn' ? 'orange' : 'black';
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addToLog(args.join(' '), 'log');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addToLog(args.join(' '), 'error');
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addToLog(args.join(' '), 'warn');
+        };
+        
+        // Check integration status
+        function checkStatus() {
+            const statusDiv = document.getElementById('status');
+            let status = [];
+            
+            if (typeof React !== 'undefined') {
+                status.push('✅ React loaded');
+            } else {
+                status.push('❌ React not found');
+            }
+            
+            if (typeof ReactDOM !== 'undefined') {
+                status.push('✅ ReactDOM loaded');
+            } else {
+                status.push('❌ ReactDOM not found');
+            }
+            
+            if (typeof window.mountNovelNotesTab === 'function') {
+                status.push('✅ mountNovelNotesTab available');
+            } else {
+                status.push('❌ mountNovelNotesTab not found');
+            }
+            
+            if (typeof window.updateNovelNotesTabProblem === 'function') {
+                status.push('✅ updateNovelNotesTabProblem available');
+            } else {
+                status.push('❌ updateNovelNotesTabProblem not found');
+            }
+            
+            statusDiv.innerHTML = status.join('<br>');
+        }
+        
+        // Test problems
+        const testProblems = {
+            simple: {
+                id: 1,
+                title: "Two Sum",
+                difficulty: "Easy",
+                concept: "Arrays & Hashing",
+                notes: "",
+                solution: "",
+                solved: false,
+                leetcode_link: "https://leetcode.com/problems/two-sum/"
+            },
+            withNotes: {
+                id: 2,
+                title: "Add Two Numbers",
+                difficulty: "Medium",
+                concept: "Linked List",
+                notes: "<p>This is a test note with <strong>HTML formatting</strong>.</p><p>Second paragraph with <em>italic text</em>.</p>",
+                solution: "def addTwoNumbers(self, l1, l2):\n    # Solution here",
+                solved: true,
+                leetcode_link: "https://leetcode.com/problems/add-two-numbers/"
+            },
+            withBlocks: {
+                id: 3,
+                title: "Longest Substring Without Repeating Characters",
+                difficulty: "Medium",
+                concept: "Sliding Window",
+                notes: JSON.stringify([
+                    { id: 1, type: 'heading', content: 'Problem Analysis' },
+                    { id: 2, type: 'text', content: 'This problem uses sliding window technique.' },
+                    { id: 3, type: 'bullet', content: 'Time complexity: O(n)' },
+                    { id: 4, type: 'bullet', content: 'Space complexity: O(min(m,n))' },
+                    { id: 5, type: 'code', content: 'def lengthOfLongestSubstring(self, s):\n    # code here' }
+                ]),
+                solution: "",
+                solved: false,
+                leetcode_link: "https://leetcode.com/problems/longest-substring-without-repeating-characters/"
+            }
+        };
+        
+        function loadTestProblem() {
+            console.log('Loading simple test problem...');
+            window.mountNovelNotesTab(testProblems.simple, 'notes-tab');
+        }
+        
+        function loadProblemWithNotes() {
+            console.log('Loading problem with HTML notes...');
+            window.mountNovelNotesTab(testProblems.withNotes, 'notes-tab');
+        }
+        
+        function loadProblemWithBlocks() {
+            console.log('Loading problem with block format notes...');
+            window.mountNovelNotesTab(testProblems.withBlocks, 'notes-tab');
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(checkStatus, 100);
+        });
+    </script>
+</body>
+</html>

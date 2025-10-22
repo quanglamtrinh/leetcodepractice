@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Problem } from './ProblemList';
-import NotesTab from './NotesTab';
+import NovelNotesTab from './NovelNotesTab';
 import SolutionTab from './SolutionTab';
 import ReviewHistoryTab from './ReviewHistoryTab';
 import AddProblemsTab from './SimilarProblemsTab';
@@ -41,7 +41,7 @@ const ProblemDetail: React.FC<ProblemDetailProps> = ({ problem, onNotesSaved, on
       </div>
       {/* Notes Tab */}
       <div className={`tab-content${activeTab === 'notes' ? ' active' : ''}`} id="notes-tab">
-        <NotesTab problem={problem} onNotesSaved={onNotesSaved} />
+        <NovelNotesTab problem={problem} onNotesSaved={onNotesSaved} />
       </div>
       {/* Solution Tab */}
       <div className={`tab-content${activeTab === 'solution' ? ' active' : ''}`} id="solution-tab">

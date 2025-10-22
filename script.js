@@ -544,27 +544,41 @@ function resetNotesPanel() {
 
 // Load notes from the problems table
 function loadNoteForProblem(problem) {
-    const editor = document.getElementById('notesEditor');
-    if (editor) {
-        // Clear any existing content and event listeners
+    console.log('📝 Loading notes for problem:', problem.id, problem.title);
+    
+    // Check if enhanced mounting with fallback is available
+    if (window.mountNotesTabWithFallback) {
+        console.log('✅ Enhanced notes integration with fallback found');
+        window.mountNotesTabWithFallback(problem, 'notes-tab');
+    } else if (window.mountNovelNotesTab) {
+        console.log('✅ Novel notes integration found, mounting NovelNotesTab');
+        // Mount to the notes-tab container, not just the notesEditor
+        window.mountNovelNotesTab(problem, 'notes-tab');
+    } else {
+        console.warn('⚠️ Novel notes integration not found, falling back to original editor');
+        // Fallback to original editor
+        const editor = document.getElementById('notesEditor');
+        if (editor) {
+            // Clear any existing content and event listeners
             editor.innerHTML = '';
-        
-        // Set the notes content
-        if (problem.notes && problem.notes.trim()) {
-            editor.innerHTML = problem.notes;
-            editor.classList.remove('placeholder');
-        } else {
-            editor.textContent = 'Write your notes here...';
-            editor.classList.add('placeholder');
+            
+            // Set the notes content
+            if (problem.notes && problem.notes.trim()) {
+                editor.innerHTML = problem.notes;
+                editor.classList.remove('placeholder');
+            } else {
+                editor.textContent = 'Write your notes here...';
+                editor.classList.add('placeholder');
+            }
+            
+            // Re-enable the notes editor when a problem is selected
+            editor.contentEditable = true;
+            editor.style.opacity = '1';
+            editor.style.pointerEvents = 'auto';
+            
+            // Add placeholder functionality for contentEditable
+            setupNotesPlaceholder(editor);
         }
-        
-        // Re-enable the notes editor when a problem is selected
-        editor.contentEditable = true;
-        editor.style.opacity = '1';
-        editor.style.pointerEvents = 'auto';
-        
-        // Add placeholder functionality for contentEditable
-        setupNotesPlaceholder(editor);
     }
 }
 

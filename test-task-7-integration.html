@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task 7 Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        
+        #notes-tab {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 300px;
+            margin: 20px 0;
+            padding: 10px;
+            background: white;
+        }
+        
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .test-button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Task 7: Novel Notes Integration Test</h1>
+        <p>This test verifies that the NovelNotesTab component is properly integrated with the main application.</p>
+        
+        <div id="status-container">
+            <div class="status info">🔍 Starting integration test...</div>
+        </div>
+        
+        <h2>Test Controls</h2>
+        <button class="test-button" onclick="runIntegrationTest()">Run Integration Test</button>
+        <button class="test-button" onclick="testProblemSwitching()">Test Problem Switching</button>
+        <button class="test-button" onclick="testAutoSave()">Test Auto-Save</button>
+        <button class="test-button" onclick="clearTests()">Clear Results</button>
+        
+        <h2>Notes Editor (NovelNotesTab)</h2>
+        <div id="notes-tab">
+            <div style="padding: 20px; text-align: center; color: #666;">
+                NovelNotesTab will be mounted here...
+            </div>
+        </div>
+        
+        <h2>Test Results</h2>
+        <div id="test-results"></div>
+    </div>
+
+    <!-- Load React and ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Load Novel Notes Integration -->
+    <script src="novel-notes-integration.js"></script>
+    
+    <script>
+        let testResults = [];
+        
+        function addStatus(message, type = 'info') {
+            const container = document.getElementById('status-container');
+            const status = document.createElement('div');
+            status.className = `status ${type}`;
+            status.textContent = message;
+            container.appendChild(status);
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function addTestResult(test, result, details = '') {
+            testResults.push({ test, result, details, timestamp: new Date().toLocaleTimeString() });
+            updateTestResults();
+        }
+        
+        function updateTestResults() {
+            const container = document.getElementById('test-results');
+            container.innerHTML = testResults.map(r => 
+                `<div class="status ${r.result ? 'success' : 'error'}">
+                    [${r.timestamp}] ${r.test}: ${r.result ? '✅ PASS' : '❌ FAIL'}
+                    ${r.details ? `<br><small>${r.details}</small>` : ''}
+                </div>`
+            ).join('');
+        }
+        
+        function clearTests() {
+            testResults = [];
+            document.getElementById('status-container').innerHTML = '<div class="status info">🔍 Tests cleared</div>';
+            document.getElementById('test-results').innerHTML = '';
+        }
+        
+        // Mock problem data for testing
+        const mockProblem = {
+            id: 1,
+            title: "Two Sum",
+            concept: "Arrays & Hashing",
+            difficulty: "Easy",
+            notes: JSON.stringify({
+                type: 'doc',
+                content: [{
+                    type: 'paragraph',
+                    content: [{ type: 'text', text: 'Test notes for Two Sum problem' }]
+                }]
+            })
+        };
+        
+        const mockProblem2 = {
+            id: 2,
+            title: "Add Two Numbers",
+            concept: "Linked List",
+            difficulty: "Medium",
+            notes: JSON.stringify({
+                type: 'doc',
+                content: [{
+                    type: 'paragraph',
+                    content: [{ type: 'text', text: 'Test notes for Add Two Numbers problem' }]
+                }]
+            })
+        };
+        
+        function runIntegrationTest() {
+            addStatus('🚀 Running integration test...', 'info');
+            
+            // Test 1: Check if React is loaded
+            if (typeof React !== 'undefined') {
+                addTestResult('React Loading', true, 'React is available');
+                addStatus('✅ React loaded successfully', 'success');
+            } else {
+                addTestResult('React Loading', false, 'React is not available');
+                addStatus('❌ React not found', 'error');
+                return;
+            }
+            
+            // Test 2: Check if ReactDOM is loaded
+            if (typeof ReactDOM !== 'undefined') {
+                addTestResult('ReactDOM Loading', true, 'ReactDOM is available');
+                addStatus('✅ ReactDOM loaded successfully', 'success');
+            } else {
+                addTestResult('ReactDOM Loading', false, 'ReactDOM is not available');
+                addStatus('❌ ReactDOM not found', 'error');
+                return;
+            }
+            
+            // Test 3: Check if Novel Notes Integration functions are available
+            const requiredFunctions = [
+                'mountNovelNotesTab',
+                'unmountNovelNotesTab', 
+                'updateNovelNotesTabProblem'
+            ];
+            
+            let allFunctionsAvailable = true;
+            requiredFunctions.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    addTestResult(`Function: ${funcName}`, true, 'Function is available');
+                    addStatus(`✅ ${funcName} is available`, 'success');
+                } else {
+                    addTestResult(`Function: ${funcName}`, false, 'Function is not available');
+                    addStatus(`❌ ${funcName} is not available`, 'error');
+                    allFunctionsAvailable = false;
+                }
+            });
+            
+            if (!allFunctionsAvailable) {
+                addStatus('❌ Integration test failed - missing functions', 'error');
+                return;
+            }
+            
+            // Test 4: Check if notes tab container exists
+            const notesTab = document.getElementById('notes-tab');
+            if (notesTab) {
+                addTestResult('Notes Container', true, 'Notes tab container found');
+                addStatus('✅ Notes tab container found', 'success');
+            } else {
+                addTestResult('Notes Container', false, 'Notes tab container not found');
+                addStatus('❌ Notes tab container not found', 'error');
+                return;
+            }
+            
+            // Test 5: Try to mount NovelNotesTab
+            try {
+                window.mountNovelNotesTab(mockProblem, 'notes-tab');
+                addTestResult('NovelNotesTab Mounting', true, 'Successfully mounted NovelNotesTab');
+                addStatus('✅ NovelNotesTab mounted successfully', 'success');
+                
+                // Wait a bit and check if content was rendered
+                setTimeout(() => {
+                    const container = document.getElementById('notes-tab');
+                    if (container && container.children.length > 0) {
+                        addTestResult('NovelNotesTab Rendering', true, 'NovelNotesTab rendered content');
+                        addStatus('✅ NovelNotesTab rendered content', 'success');
+                    } else {
+                        addTestResult('NovelNotesTab Rendering', false, 'NovelNotesTab did not render content');
+                        addStatus('⚠️ NovelNotesTab mounted but no content rendered', 'warning');
+                    }
+                }, 1000);
+                
+            } catch (error) {
+                addTestResult('NovelNotesTab Mounting', false, `Error: ${error.message}`);
+                addStatus(`❌ Failed to mount NovelNotesTab: ${error.message}`, 'error');
+            }
+            
+            addStatus('🎉 Integration test completed', 'success');
+        }
+        
+        function testProblemSwitching() {
+            addStatus('🔄 Testing problem switching...', 'info');
+            
+            try {
+                // Mount first problem
+                window.mountNovelNotesTab(mockProblem, 'notes-tab');
+                addTestResult('Problem Switch - Mount 1', true, 'Mounted first problem');
+                
+                setTimeout(() => {
+                    try {
+                        // Switch to second problem
+                        window.updateNovelNotesTabProblem(mockProblem2);
+                        addTestResult('Problem Switch - Update', true, 'Updated to second problem');
+                        addStatus('✅ Problem switching works', 'success');
+                    } catch (error) {
+                        addTestResult('Problem Switch - Update', false, `Error: ${error.message}`);
+                        addStatus(`❌ Problem switching failed: ${error.message}`, 'error');
+                    }
+                }, 500);
+                
+            } catch (error) {
+                addTestResult('Problem Switch - Mount 1', false, `Error: ${error.message}`);
+                addStatus(`❌ Problem switching test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function testAutoSave() {
+            addStatus('💾 Testing auto-save functionality...', 'info');
+            
+            // Set up a mock onNotesSaved callback
+            window.onNotesSaved = function(problemId, notes) {
+                addTestResult('Auto-Save Callback', true, `Callback triggered for problem ${problemId}`);
+                addStatus(`✅ Auto-save callback triggered for problem ${problemId}`, 'success');
+                console.log('📝 Mock onNotesSaved called:', problemId, notes);
+            };
+            
+            try {
+                // Mount the component with the callback
+                window.mountNovelNotesTab(mockProblem, 'notes-tab');
+                addTestResult('Auto-Save Setup', true, 'NovelNotesTab mounted with callback');
+                addStatus('✅ Auto-save test setup complete', 'success');
+                
+                // The actual auto-save testing would require user interaction with the editor
+                addStatus('ℹ️ Auto-save will be triggered when you edit the notes', 'info');
+                
+            } catch (error) {
+                addTestResult('Auto-Save Setup', false, `Error: ${error.message}`);
+                addStatus(`❌ Auto-save test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Run initial test when page loads
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                addStatus('🔍 Page loaded, ready for testing', 'info');
+                addStatus('Click "Run Integration Test" to start', 'info');
+            }, 500);
+        });
+    </script>
+</body>
+</html>

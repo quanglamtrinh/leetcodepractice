@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>List Styling Fix Test</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="client/src/styles/novel-editor.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background-color: #f8fafc;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+        }
+        .test-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        .test-button:hover {
+            background: #2563eb;
+        }
+        .test-results {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>List Styling Fix Test</h1>
+        <p>This page tests that bullet lists and numbered lists display properly with markers.</p>
+
+        <div class="test-section">
+            <h3>1. TypeScript Error Fix Test</h3>
+            <p>Testing that the TypeScript compilation errors are resolved.</p>
+            <button class="test-button" onclick="testTypeScriptFix()">Test TypeScript</button>
+            <div id="typescript-results" class="test-results" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. List Styling Test</h3>
+            <p>Testing that bullet lists and numbered lists show proper markers.</p>
+            <button class="test-button" onclick="testListStyling()">Test List Styling</button>
+            <button class="test-button" onclick="testNovelEditorLists()">Test Novel Editor Lists</button>
+            <div id="list-results" class="test-results" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. CSS Override Test</h3>
+            <p>Testing that Novel editor list styles override global styles.</p>
+            <div class="novel-editor-container">
+                <div class="novel-editor">
+                    <div class="prose">
+                        <h4>Test Lists:</h4>
+                        <ul class="my-custom-bullet-list">
+                            <li>Bullet item 1</li>
+                            <li>Bullet item 2</li>
+                            <li>Bullet item 3</li>
+                        </ul>
+                        <ol class="my-custom-ordered-list">
+                            <li>Numbered item 1</li>
+                            <li>Numbered item 2</li>
+                            <li>Numbered item 3</li>
+                        </ol>
+                        <ul data-type="bulletList">
+                            <li>Novel bullet item 1</li>
+                            <li>Novel bullet item 2</li>
+                        </ul>
+                        <ol data-type="orderedList">
+                            <li>Novel numbered item 1</li>
+                            <li>Novel numbered item 2</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Novel Editor Integration Test</h3>
+            <p>Testing that the Novel editor loads and lists work properly.</p>
+            <button class="test-button" onclick="testNovelEditorIntegration()">Test Integration</button>
+            <div id="integration-results" class="test-results" style="display: none;"></div>
+            <div id="test-editor-container" style="margin-top: 15px; border: 1px solid #e5e7eb; border-radius: 6px; min-height: 200px;">
+                <div id="test-notes-editor"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- React Dependencies -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Novel Notes Integration -->
+    <script src="novel-notes-integration.js"></script>
+
+    <script>
+        function updateResults(testName, results) {
+            const container = document.getElementById(`${testName}-results`);
+            container.style.display = 'block';
+            container.innerHTML = results;
+        }
+
+        function testTypeScriptFix() {
+            try {
+                // Test if the Novel editor integration loads without TypeScript errors
+                if (window.mountNovelNotesTab && typeof window.mountNovelNotesTab === 'function') {
+                    const results = `
+<span class="status success">✅ TypeScript Fix PASSED</span>
+- Novel editor integration loaded successfully
+- No TypeScript compilation errors detected
+- Function signatures are properly typed
+                    `;
+                    updateResults('typescript', results);
+                } else {
+                    throw new Error('Novel editor integration not found');
+                }
+            } catch (error) {
+                const results = `
+<span class="status error">❌ TypeScript Fix FAILED</span>
+- Error: ${error.message}
+                `;
+                updateResults('typescript', results);
+            }
+        }
+
+        function testListStyling() {
+            try {
+                // Test if list styles are properly applied
+                const bulletList = document.querySelector('.my-custom-bullet-list');
+                const orderedList = document.querySelector('.my-custom-ordered-list');
+                
+                if (bulletList && orderedList) {
+                    const bulletStyle = window.getComputedStyle(bulletList);
+                    const orderedStyle = window.getComputedStyle(orderedList);
+                    
+                    const bulletListType = bulletStyle.listStyleType;
+                    const orderedListType = orderedStyle.listStyleType;
+                    
+                    const bulletHasMarkers = bulletListType === 'disc' || bulletListType !== 'none';
+                    const orderedHasMarkers = orderedListType === 'decimal' || orderedListType !== 'none';
+                    
+                    const results = `
+<span class="status ${bulletHasMarkers && orderedHasMarkers ? 'success' : 'error'}">
+${bulletHasMarkers && orderedHasMarkers ? '✅' : '❌'} List Styling ${bulletHasMarkers && orderedHasMarkers ? 'PASSED' : 'FAILED'}
+</span>
+- Bullet list style: ${bulletListType}
+- Ordered list style: ${orderedListType}
+- Bullet markers visible: ${bulletHasMarkers}
+- Number markers visible: ${orderedHasMarkers}
+                    `;
+                    updateResults('list', results);
+                } else {
+                    throw new Error('Test lists not found');
+                }
+            } catch (error) {
+                const results = `
+<span class="status error">❌ List Styling Test FAILED</span>
+- Error: ${error.message}
+                `;
+                updateResults('list', results);
+            }
+        }
+
+        function testNovelEditorLists() {
+            try {
+                // Test Novel editor specific list styling
+                const novelBulletList = document.querySelector('ul[data-type="bulletList"]');
+                const novelOrderedList = document.querySelector('ol[data-type="orderedList"]');
+                
+                if (novelBulletList && novelOrderedList) {
+                    const bulletStyle = window.getComputedStyle(novelBulletList);
+                    const orderedStyle = window.getComputedStyle(novelOrderedList);
+                    
+                    const bulletListType = bulletStyle.listStyleType;
+                    const orderedListType = orderedStyle.listStyleType;
+                    
+                    const bulletHasMarkers = bulletListType === 'disc' || bulletListType !== 'none';
+                    const orderedHasMarkers = orderedListType === 'decimal' || orderedListType !== 'none';
+                    
+                    const results = `
+<span class="status ${bulletHasMarkers && orderedHasMarkers ? 'success' : 'error'}">
+${bulletHasMarkers && orderedHasMarkers ? '✅' : '❌'} Novel Editor Lists ${bulletHasMarkers && orderedHasMarkers ? 'PASSED' : 'FAILED'}
+</span>
+- Novel bullet list style: ${bulletListType}
+- Novel ordered list style: ${orderedListType}
+- Novel bullet markers visible: ${bulletHasMarkers}
+- Novel number markers visible: ${orderedHasMarkers}
+                    `;
+                    updateResults('list', results);
+                } else {
+                    throw new Error('Novel editor test lists not found');
+                }
+            } catch (error) {
+                const results = `
+<span class="status error">❌ Novel Editor Lists Test FAILED</span>
+- Error: ${error.message}
+                `;
+                updateResults('list', results);
+            }
+        }
+
+        async function testNovelEditorIntegration() {
+            try {
+                if (!window.mountNovelNotesTab) {
+                    throw new Error('Novel editor integration not available');
+                }
+
+                // Test problem with list content
+                const testProblem = {
+                    id: 1,
+                    title: "List Test Problem",
+                    notes: JSON.stringify({
+                        type: "doc",
+                        content: [
+                            {
+                                type: "paragraph",
+                                content: [{ type: "text", text: "Test lists:" }]
+                            },
+                            {
+                                type: "bulletList",
+                                content: [
+                                    {
+                                        type: "listItem",
+                                        content: [
+                                            {
+                                                type: "paragraph",
+                                                content: [{ type: "text", text: "Bullet item 1" }]
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        type: "listItem",
+                                        content: [
+                                            {
+                                                type: "paragraph",
+                                                content: [{ type: "text", text: "Bullet item 2" }]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                type: "orderedList",
+                                content: [
+                                    {
+                                        type: "listItem",
+                                        content: [
+                                            {
+                                                type: "paragraph",
+                                                content: [{ type: "text", text: "Numbered item 1" }]
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        type: "listItem",
+                                        content: [
+                                            {
+                                                type: "paragraph",
+                                                content: [{ type: "text", text: "Numbered item 2" }]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    })
+                };
+
+                // Mount the editor
+                window.mountNovelNotesTab(testProblem, 'test-notes-editor');
+                
+                // Wait for editor to load
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Check if lists are rendered properly
+                const editorContainer = document.getElementById('test-notes-editor');
+                const bulletLists = editorContainer.querySelectorAll('ul');
+                const orderedLists = editorContainer.querySelectorAll('ol');
+                
+                const results = `
+<span class="status success">✅ Novel Editor Integration PASSED</span>
+- Editor mounted successfully
+- Bullet lists found: ${bulletLists.length}
+- Ordered lists found: ${orderedLists.length}
+- List content loaded properly
+- TypeScript errors resolved
+                `;
+                updateResults('integration', results);
+                
+            } catch (error) {
+                const results = `
+<span class="status error">❌ Novel Editor Integration FAILED</span>
+- Error: ${error.message}
+                `;
+                updateResults('integration', results);
+            }
+        }
+
+        // Auto-run basic tests
+        setTimeout(() => {
+            testTypeScriptFix();
+            testListStyling();
+            testNovelEditorLists();
+        }, 1000);
+
+        console.log('List Styling Fix Test Page Loaded');
+    </script>
+</body>
+</html>

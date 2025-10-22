@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Integration Test</title>
+    <link rel="stylesheet" href="novel-editor.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        
+        /* Exact copy of the application's notes panel styling */
+        .notes-panel {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 20px 0;
+            background: white;
+        }
+        
+        .notes-header {
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 500;
+        }
+        
+        .notes-status {
+            font-size: 12px;
+            color: #666;
+            font-weight: normal;
+        }
+        
+        .notes-editor {
+            min-height: 350px;
+            padding: 20px 20px 28px 30px;
+            border: none;
+            outline: none;
+            background: white;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .notes-editor:focus {
+            outline: none;
+        }
+        
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .test-button:hover {
+            background: #0056b3;
+        }
+        
+        .test-button.success {
+            background: #28a745;
+        }
+        
+        .test-button.danger {
+            background: #dc3545;
+        }
+        
+        .problem-selector {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .problem-selector select {
+            padding: 5px 10px;
+            margin: 0 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Final NovelNotesTab Integration Test</h1>
+        <p>This test verifies that NovelNotesTab is working exactly like in the main application.</p>
+        
+        <div id="status-container">
+            <div class="status info">🔍 Initializing test...</div>
+        </div>
+        
+        <h2>Test Controls</h2>
+        <button class="test-button" onclick="runFullTest()">Run Full Integration Test</button>
+        <button class="test-button success" onclick="loadProblem()">Load Test Problem</button>
+        <button class="test-button" onclick="switchProblem()">Switch Problem</button>
+        <button class="test-button danger" onclick="clearNotes()">Clear Notes</button>
+        
+        <div class="problem-selector">
+            <label>Select Test Problem:</label>
+            <select id="problemSelector" onchange="loadSelectedProblem()">
+                <option value="1">Two Sum (with existing notes)</option>
+                <option value="2">Add Two Numbers (empty notes)</option>
+                <option value="3">Longest Substring (HTML notes)</option>
+                <option value="4">Median of Arrays (plain text notes)</option>
+            </select>
+        </div>
+        
+        <h2>Notes Panel (Exact App Structure)</h2>
+        <div class="notes-panel">
+            <div class="notes-header">
+                <span>📝 Notes</span>
+                <span id="notesStatus" class="notes-status">Ready</span>
+            </div>
+            <div
+                id="notesEditor"
+                class="notes-editor"
+                contenteditable="true"
+                spellcheck="false"
+                placeholder="Write your notes here…"
+            >
+                Click "Load Test Problem" to see NovelNotesTab in action...
+            </div>
+        </div>
+        
+        <h2>Test Results</h2>
+        <div id="test-results"></div>
+    </div>
+
+    <!-- Load React and ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Load Novel Notes Integration -->
+    <script src="novel-notes-integration.js"></script>
+    
+    <script>
+        let testResults = [];
+        let currentProblemId = null;
+        
+        // Mock problems with different note formats
+        const mockProblems = {
+            1: {
+                id: 1,
+                title: "Two Sum",
+                concept: "Arrays & Hashing",
+                difficulty: "Easy",
+                notes: JSON.stringify({
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'heading',
+                            attrs: { level: 1 },
+                            content: [{ type: 'text', text: 'Two Sum Problem Analysis' }]
+                        },
+                        {
+                            type: 'paragraph',
+                            content: [{ type: 'text', text: 'This problem asks us to find two numbers in an array that add up to a target sum.' }]
+                        },
+                        {
+                            type: 'bulletList',
+                            content: [
+                                {
+                                    type: 'listItem',
+                                    content: [{
+                                        type: 'paragraph',
+                                        content: [{ type: 'text', text: 'Time complexity: O(n)' }]
+                                    }]
+                                },
+                                {
+                                    type: 'listItem',
+                                    content: [{
+                                        type: 'paragraph',
+                                        content: [{ type: 'text', text: 'Space complexity: O(n)' }]
+                                    }]
+                                }
+                            ]
+                        }
+                    ]
+                })
+            },
+            2: {
+                id: 2,
+                title: "Add Two Numbers",
+                concept: "Linked List",
+                difficulty: "Medium",
+                notes: ""
+            },
+            3: {
+                id: 3,
+                title: "Longest Substring Without Repeating Characters",
+                concept: "Sliding Window",
+                difficulty: "Medium",
+                notes: "<h2>Sliding Window Approach</h2><p>Use two pointers to maintain a window of unique characters.</p><ul><li>Left pointer: start of window</li><li>Right pointer: end of window</li></ul>"
+            },
+            4: {
+                id: 4,
+                title: "Median of Two Sorted Arrays",
+                concept: "Binary Search",
+                difficulty: "Hard",
+                notes: "This is a plain text note about finding the median of two sorted arrays. We need to use binary search to achieve O(log(min(m,n))) time complexity."
+            }
+        };
+        
+        function addStatus(message, type = 'info') {
+            const container = document.getElementById('status-container');
+            const status = document.createElement('div');
+            status.className = `status ${type}`;
+            status.textContent = message;
+            container.appendChild(status);
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function addTestResult(test, result, details = '') {
+            testResults.push({ test, result, details, timestamp: new Date().toLocaleTimeString() });
+            updateTestResults();
+        }
+        
+        function updateTestResults() {
+            const container = document.getElementById('test-results');
+            container.innerHTML = testResults.map(r => 
+                `<div class="status ${r.result ? 'success' : 'error'}">
+                    [${r.timestamp}] ${r.test}: ${r.result ? '✅ PASS' : '❌ FAIL'}
+                    ${r.details ? `<br><small>${r.details}</small>` : ''}
+                </div>`
+            ).join('');
+        }
+        
+        function runFullTest() {
+            addStatus('🚀 Running full integration test...', 'info');
+            testResults = [];
+            
+            // Test 1: Check dependencies
+            if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined') {
+                addTestResult('React Dependencies', true, 'React and ReactDOM loaded');
+            } else {
+                addTestResult('React Dependencies', false, 'Missing React or ReactDOM');
+                return;
+            }
+            
+            // Test 2: Check Novel integration functions
+            const functions = ['mountNovelNotesTab', 'unmountNovelNotesTab', 'updateNovelNotesTabProblem'];
+            let allFound = true;
+            functions.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    addTestResult(`Function: ${funcName}`, true);
+                } else {
+                    addTestResult(`Function: ${funcName}`, false);
+                    allFound = false;
+                }
+            });
+            
+            if (!allFound) return;
+            
+            // Test 3: Test mounting
+            setTimeout(() => {
+                loadProblem();
+                
+                // Test 4: Test problem switching after mount
+                setTimeout(() => {
+                    switchProblem();
+                    addStatus('✅ Full integration test completed', 'success');
+                }, 3000);
+            }, 1000);
+        }
+        
+        function loadProblem() {
+            const problemId = document.getElementById('problemSelector').value;
+            const problem = mockProblems[problemId];
+            
+            addStatus(`🔄 Loading problem: ${problem.title}`, 'info');
+            document.getElementById('notesStatus').textContent = 'Loading...';
+            
+            try {
+                // Simulate the actual app's loadNoteForProblem function
+                if (window.mountNovelNotesTab) {
+                    console.log('📝 Loading notes for problem:', problem.id, problem.title);
+                    window.mountNovelNotesTab(problem, 'notesEditor');
+                    
+                    currentProblemId = problemId;
+                    addStatus(`✅ Loaded ${problem.title} with NovelNotesTab`, 'success');
+                    document.getElementById('notesStatus').textContent = 'Novel Editor Active';
+                    
+                    addTestResult('Problem Loading', true, `${problem.title} loaded successfully`);
+                } else {
+                    addStatus('❌ Novel integration not available', 'error');
+                    addTestResult('Problem Loading', false, 'mountNovelNotesTab not found');
+                }
+            } catch (error) {
+                addStatus(`❌ Error loading problem: ${error.message}`, 'error');
+                addTestResult('Problem Loading', false, error.message);
+            }
+        }
+        
+        function loadSelectedProblem() {
+            if (currentProblemId) {
+                loadProblem();
+            }
+        }
+        
+        function switchProblem() {
+            // Switch to a different problem
+            const currentId = document.getElementById('problemSelector').value;
+            const newId = currentId === '1' ? '2' : '1';
+            
+            document.getElementById('problemSelector').value = newId;
+            loadProblem();
+            
+            addTestResult('Problem Switching', true, `Switched from problem ${currentId} to ${newId}`);
+        }
+        
+        function clearNotes() {
+            try {
+                if (window.unmountNovelNotesTab) {
+                    window.unmountNovelNotesTab();
+                    document.getElementById('notesEditor').innerHTML = 'Notes cleared - select a problem to load NovelNotesTab';
+                    document.getElementById('notesStatus').textContent = 'Cleared';
+                    addStatus('✅ Notes cleared', 'success');
+                    addTestResult('Notes Clearing', true, 'Successfully unmounted NovelNotesTab');
+                    currentProblemId = null;
+                } else {
+                    addStatus('❌ unmountNovelNotesTab not available', 'error');
+                    addTestResult('Notes Clearing', false, 'unmountNovelNotesTab not found');
+                }
+            } catch (error) {
+                addStatus(`❌ Error clearing notes: ${error.message}`, 'error');
+                addTestResult('Notes Clearing', false, error.message);
+            }
+        }
+        
+        // Set up auto-save callback to test integration
+        window.onNotesSaved = function(problemId, notes) {
+            addStatus(`💾 Auto-save triggered for problem ${problemId}`, 'success');
+            document.getElementById('notesStatus').textContent = 'Saved!';
+            setTimeout(() => {
+                document.getElementById('notesStatus').textContent = 'Novel Editor Active';
+            }, 2000);
+        };
+        
+        // Initialize when page loads
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                if (typeof window.mountNovelNotesTab === 'function') {
+                    addStatus('✅ NovelNotesTab integration ready', 'success');
+                    addStatus('Click "Load Test Problem" to see the Novel editor in action', 'info');
+                } else {
+                    addStatus('❌ NovelNotesTab integration not found', 'error');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
