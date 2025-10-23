@@ -28,6 +28,16 @@ import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { common, createLowlight } from 'lowlight';
+import python from 'highlight.js/lib/languages/python';
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import java from 'highlight.js/lib/languages/java';
+import cpp from 'highlight.js/lib/languages/cpp';
+import c from 'highlight.js/lib/languages/c';
+import sql from 'highlight.js/lib/languages/sql';
+import json from 'highlight.js/lib/languages/json';
 import { 
   List, 
   ListOrdered, 
@@ -43,6 +53,18 @@ import { BackwardCompatibilityConverter } from '../utils/BackwardCompatibilityCo
 import AskAI from './AskAI';
 import '../styles/novel-editor.css';
 import '../styles/ask-ai.css';
+import 'highlight.js/styles/tokyo-night-dark.css'; // Dark theme for code highlighting
+
+// Create lowlight instance and register additional languages
+const lowlight = createLowlight(common);
+lowlight.register('python', python);
+lowlight.register('javascript', javascript);
+lowlight.register('typescript', typescript);
+lowlight.register('java', java);
+lowlight.register('cpp', cpp);
+lowlight.register('c', c);
+lowlight.register('sql', sql);
+lowlight.register('json', json);
 
 interface NovelNotesTabProps {
   problem: Problem;
@@ -207,12 +229,8 @@ const createOptimizedExtensions = (placeholderText: string = "Type '/' for comma
           class: 'novel-inline-code',
         },
       },
-      codeBlock: {
-        HTMLAttributes: {
-          class: 'novel-code-block',
-          spellcheck: 'false',
-        },
-      },
+      // Disable default codeBlock - we'll use CodeBlockLowlight instead
+      codeBlock: false,
       // Enable heading levels
       heading: {
         levels: [1, 2, 3, 4, 5, 6],
@@ -232,6 +250,15 @@ const createOptimizedExtensions = (placeholderText: string = "Type '/' for comma
           class: 'novel-blockquote',
         },
       },
+    }),
+    // Add CodeBlockLowlight for syntax highlighting
+    CodeBlockLowlight.configure({
+      lowlight,
+      HTMLAttributes: {
+        class: 'novel-code-block',
+        spellcheck: 'false',
+      },
+      defaultLanguage: 'python', // Default to Python like NotesTab
     }),
     TaskList.configure({
       HTMLAttributes: {
