@@ -17,10 +17,17 @@ import {
   UpdatedImage,
   HorizontalRule,
   Command,
-  renderItems
+  renderItems,
+  handleCommandNavigation,
+  type EditorInstance
 } from 'novel';
 import { Editor } from '@tiptap/react';
 import { Range } from '@tiptap/core';
+import { useDebouncedCallback } from 'use-debounce';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
 import { 
   List, 
   ListOrdered, 
@@ -28,7 +35,8 @@ import {
   Code, 
   CheckSquare,
   Heading1,
-  Quote
+  Quote,
+  Table as TableIcon
 } from 'lucide-react';
 import { Problem } from './ProblemList';
 import { BackwardCompatibilityConverter } from '../utils/BackwardCompatibilityConverter';
@@ -261,13 +269,35 @@ const createOptimizedExtensions = (placeholderText: string = "Type '/' for comma
       showOnlyWhenEditable: true,
       showOnlyCurrent: false,
     }),
+    // Add table support for pasting and creating tables
+    Table.configure({
+      resizable: true,
+      HTMLAttributes: {
+        class: 'novel-table border-collapse table-auto w-full my-4',
+      },
+    }),
+    TableRow.configure({
+      HTMLAttributes: {
+        class: 'novel-table-row',
+      },
+    }),
+    TableHeader.configure({
+      HTMLAttributes: {
+        class: 'novel-table-header border border-gray-300 px-3 py-2 bg-gray-100 font-semibold text-left',
+      },
+    }),
+    TableCell.configure({
+      HTMLAttributes: {
+        class: 'novel-table-cell border border-gray-300 px-3 py-2',
+      },
+    }),
   ];
 };
 
 // Wrapper component for Novel editor with error boundary and optimizations
 const NovelEditorWrapper: React.FC<{
   content: JSONContent | undefined;
-  onContentChange: (content: JSONContent) => void;
+  onContentChange: (editor: EditorInstance) => void;
   onError: (error: string) => void;
   suggestionItems: any[];
   placeholderText?: string;
@@ -332,10 +362,10 @@ const NovelEditorWrapper: React.FC<{
       class: 'prose prose-lg dark:prose-invert prose-headings:font-title font-default focus:outline-none max-w-full',
       spellcheck: 'false', // Disable spellcheck for better performance
     },
-    // Optimize transaction handling
-    handleDOMEvents: enableOptimizations ? {
-      // Prevent unnecessary DOM events for better performance
-      paste: (view: any, event: ClipboardEvent) => {
+    // Optimize transaction handling and add keyboard navigation
+    handleDOMEvents: {
+      keydown: (_view: any, event: KeyboardEvent) => handleCommandNavigation(event),
+      paste: enableOptimizations ? (view: any, event: ClipboardEvent) => {
         // Let the editor handle paste normally but optimize large pastes
         const clipboardData = event.clipboardData;
         if (clipboardData) {
@@ -346,8 +376,8 @@ const NovelEditorWrapper: React.FC<{
           }
         }
         return false; // Let editor handle normally
-      },
-    } : {},
+      } : undefined,
+    },
   }), [enableOptimizations]);
 
   try {
@@ -384,12 +414,10 @@ const NovelEditorWrapper: React.FC<{
                 if (contentSize > 500000) { // 500KB
                   logDebug('Large content detected, performance may be affected', { size: contentSize });
                 }
-                
-                onContentChange(json);
-              } else {
-                const json = editor.getJSON();
-                onContentChange(json);
               }
+              
+              // Pass editor instance instead of just JSON content
+              onContentChange(editor as EditorInstance);
             } catch (error) {
               logError('Error getting editor content', error);
               onError(`Content update failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -580,20 +608,156 @@ const NovelEditorWrapper: React.FC<{
 
             <div className="h-6 w-px bg-muted mx-1" />
 
-            {/* More Options */}
-            <EditorBubbleItem
-              onSelect={(editor) => {
-                // Could open a more options menu
-                console.log('More options clicked');
-              }}
-              className="p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="1" />
-                <circle cx="19" cy="12" r="1" />
-                <circle cx="5" cy="12" r="1" />
-              </svg>
-            </EditorBubbleItem>
+            {/* Table Controls - Only show when in a table */}
+            {editorRef.current?.isActive('table') && (
+              <>
+                <div className="h-6 w-px bg-muted mx-1" />
+                
+                {/* Add Column Before */}
+                <EditorBubbleItem
+                  onSelect={(editor) => {
+                    editor.chain().focus().addColumnBefore().run();
+                  }}
+                  className="p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  title="Add column before"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m-4-8h8" />
+                    <rect x="4" y="4" width="6" height="16" strokeWidth={2} fill="none" />
+                  </svg>
+                </EditorBubbleItem>
+
+                {/* Add Column After */}
+                <EditorBubbleItem
+                  onSelect={(editor) => {
+                    editor.chain().focus().addColumnAfter().run();
+                  }}
+                  className="p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  title="Add column after"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m-4-8h8" />
+                    <rect x="14" y="4" width="6" height="16" strokeWidth={2} fill="none" />
+                  </svg>
+                </EditorBubbleItem>
+
+                {/* Delete Column */}
+                <EditorBubbleItem
+                  onSelect={(editor) => {
+                    editor.chain().focus().deleteColumn().run();
+                  }}
+                  className="p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+                  title="Delete column"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <rect x="9" y="4" width="6" height="16" strokeWidth={2} fill="none" />
+                  </svg>
+                </EditorBubbleItem>
+
+                <div className="h-6 w-px bg-muted mx-1" />
+
+                {/* Add Row Before */}
+                <EditorBubbleItem
+                  onSelect={(editor) => {
+                    editor.chain().focus().addRowBefore().run();
+                  }}
+                  className="p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  title="Add row before"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12h16m-8-4v8" />
+                    <rect x="4" y="4" width="16" height="6" strokeWidth={2} fill="none" />
+                  </svg>
+                </EditorBubbleItem>
+
+                {/* Add Row After */}
+                <EditorBubbleItem
+                  onSelect={(editor) => {
+                    editor.chain().focus().addRowAfter().run();
+                  }}
+                  className="p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  title="Add row after"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12h16m-8-4v8" />
+                    <rect x="4" y="14" width="16" height="6" strokeWidth={2} fill="none" />
+                  </svg>
+                </EditorBubbleItem>
+
+                {/* Delete Row */}
+                <EditorBubbleItem
+                  onSelect={(editor) => {
+                    editor.chain().focus().deleteRow().run();
+                  }}
+                  className="p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+                  title="Delete row"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <rect x="4" y="9" width="16" height="6" strokeWidth={2} fill="none" />
+                  </svg>
+                </EditorBubbleItem>
+
+                <div className="h-6 w-px bg-muted mx-1" />
+
+                {/* Merge Cells */}
+                <EditorBubbleItem
+                  onSelect={(editor) => {
+                    editor.chain().focus().mergeCells().run();
+                  }}
+                  className="p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  title="Merge selected cells"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                  </svg>
+                </EditorBubbleItem>
+
+                {/* Split Cell */}
+                <EditorBubbleItem
+                  onSelect={(editor) => {
+                    editor.chain().focus().splitCell().run();
+                  }}
+                  className="p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  title="Split merged cell"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                    <line x1="12" y1="4" x2="12" y2="20" strokeWidth={2} />
+                  </svg>
+                </EditorBubbleItem>
+
+                {/* Toggle Header Cell */}
+                <EditorBubbleItem
+                  onSelect={(editor) => {
+                    editor.chain().focus().toggleHeaderCell().run();
+                  }}
+                  className="p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  title="Toggle header cell"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect x="3" y="3" width="18" height="6" strokeWidth={2} fill="none" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9h18" />
+                  </svg>
+                </EditorBubbleItem>
+
+                <div className="h-6 w-px bg-muted mx-1" />
+
+                {/* Delete Table */}
+                <EditorBubbleItem
+                  onSelect={(editor) => {
+                    editor.chain().focus().deleteTable().run();
+                  }}
+                  className="p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+                  title="Delete entire table"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </EditorBubbleItem>
+              </>
+            )}
           </EditorBubble>
         </EditorContent>
       </EditorRoot>
@@ -619,6 +783,7 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [editorLoadError, setEditorLoadError] = useState<string | null>(null);
+  const [wordCount, setWordCount] = useState<number>(0);
   const [saveState, setSaveState] = useState<SaveState>({
     isSaving: false,
     lastSaveTime: null,
@@ -1148,42 +1313,53 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
   const saveNotesRef = useRef(saveNotes);
   saveNotesRef.current = saveNotes;
 
-  // Enhanced debounced save function with configurable delay and cleanup
-  const debouncedSave = useCallback(
-    (() => {
-      let timeoutId: NodeJS.Timeout;
+  // Enhanced debounced save function using useDebouncedCallback from use-debounce library
+  const debouncedSave = useDebouncedCallback(
+    (editor: EditorInstance) => {
+      // Don't save if component is unmounted
+      if (isUnmountedRef.current) {
+        return;
+      }
       
-      const debouncedFunction = (content: JSONContent) => {
-        // Don't save if component is unmounted
-        if (isUnmountedRef.current) {
-          return;
-        }
-        
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-          // Double-check if component is still mounted
-          if (!isUnmountedRef.current) {
-            logDebug(`Auto-save triggered after ${autoSaveDelay}ms delay`);
-            saveNotesRef.current(content);
-          }
-        }, autoSaveDelay);
-      };
+      const json = editor.getJSON();
       
-      // Add cleanup function
-      const cleanup = () => {
-        clearTimeout(timeoutId);
-      };
-      cleanupFunctionsRef.current.push(cleanup);
+      // Update word count
+      if (editor.storage.characterCount) {
+        const words = editor.storage.characterCount.words();
+        setWordCount(words);
+      }
       
-      return debouncedFunction;
-    })(),
-    [autoSaveDelay]
+      logDebug(`Auto-save triggered after ${autoSaveDelay}ms delay`);
+      
+      // Save without updating content state to avoid losing cursor
+      saveNotesRef.current(json);
+      setStatus('Saved');
+      setTimeout(() => setStatus(''), 1200);
+    },
+    autoSaveDelay
   );
 
-  const handleContentChange = useCallback((content: JSONContent) => {
-    setContent(content);
-    debouncedSave(content);
+  const handleContentChange = useCallback((editor: EditorInstance) => {
+    // Don't update content state during typing to avoid losing cursor
+    // The editor manages its own state
+    setStatus('Unsaved');
+    
+    // Update word count in real-time
+    if (editor.storage.characterCount) {
+      const words = editor.storage.characterCount.words();
+      setWordCount(words);
+    }
+    
+    debouncedSave(editor);
   }, [debouncedSave]);
+
+  // Separate handler for fallback editor (which uses JSONContent directly)
+  const handleFallbackContentChange = useCallback((json: JSONContent) => {
+    setContent(json);
+    setStatus('Unsaved');
+    // For fallback editor, we need to save the JSONContent directly
+    saveNotes(json);
+  }, [saveNotes]);
 
   // Add parent component reference for editor cleanup
   React.useEffect(() => {
@@ -1471,16 +1647,62 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
         editor.chain().focus().deleteRange(range).setHorizontalRule().run();
       },
     },
+    {
+      title: 'Table (3x3)',
+      description: 'Insert a 3x3 table with headers.',
+      searchTerms: ['table', 'grid', 'spreadsheet', 'rows', 'columns', '3x3'],
+      icon: <TableIcon size={18} />,
+      command: ({ editor, range }: { editor: Editor; range: Range }) => {
+        editor.chain().focus().deleteRange(range).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+      },
+    },
+    {
+      title: 'Table (2x2)',
+      description: 'Insert a simple 2x2 table.',
+      searchTerms: ['table', 'grid', '2x2', 'small'],
+      icon: (
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <rect x="3" y="3" width="8" height="8" />
+          <rect x="13" y="3" width="8" height="8" />
+          <rect x="3" y="13" width="8" height="8" />
+          <rect x="13" y="13" width="8" height="8" />
+        </svg>
+      ),
+      command: ({ editor, range }: { editor: Editor; range: Range }) => {
+        editor.chain().focus().deleteRange(range).insertTable({ rows: 2, cols: 2, withHeaderRow: false }).run();
+      },
+    },
+    {
+      title: 'Table (5x5)',
+      description: 'Insert a large 5x5 table.',
+      searchTerms: ['table', 'grid', '5x5', 'large'],
+      icon: (
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <rect x="2" y="2" width="20" height="20" />
+          <line x1="2" y1="6" x2="22" y2="6" />
+          <line x1="2" y1="10" x2="22" y2="10" />
+          <line x1="2" y1="14" x2="22" y2="14" />
+          <line x1="2" y1="18" x2="22" y2="18" />
+          <line x1="6" y1="2" x2="6" y2="22" />
+          <line x1="10" y1="2" x2="10" y2="22" />
+          <line x1="14" y1="2" x2="14" y2="22" />
+          <line x1="18" y1="2" x2="18" y2="22" />
+        </svg>
+      ),
+      command: ({ editor, range }: { editor: Editor; range: Range }) => {
+        editor.chain().focus().deleteRange(range).insertTable({ rows: 5, cols: 5, withHeaderRow: true }).run();
+      },
+    },
   ];
 
   return (
     <div className={`novel-notes-tab ${className}`}>
       {/* Enhanced header with better status reporting */}
-      <div className="flex justify-between items-center mb-4">
-        <div className="notes-header">
+      <div className="flex justify-between items-center m-4">
+        <div className="notes-header flex items-center gap-3">
           <span className="text-lg font-medium">📝 Notes</span>
           {isLoading && (
-            <span className="ml-2 text-sm text-blue-600 flex items-center">
+            <span className="text-sm text-blue-600 flex items-center">
               <svg className="animate-spin -ml-1 mr-1 h-3 w-3 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -1488,36 +1710,31 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
               Loading...
             </span>
           )}
-          {status && !isLoading && (
-            <span className={`ml-2 text-sm flex items-center ${
-              status.includes('Saved') || status.includes('Cleared') ? 'text-green-600' : 
-              status.includes('Error') || status.includes('Failed') ? 'text-red-600' : 
-              status.includes('Saving') || status.includes('Clearing') ? 'text-blue-600' :
-              'text-gray-600'
-            }`}>
-              {(status.includes('Saved') || status.includes('Cleared')) && (
-                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
+          {!isLoading && (
+            <>
+              {/* Save status badge */}
+              {status && (
+                <span className={`px-2 py-1 text-xs rounded-lg ${
+                  status === 'Saved' ? 'bg-green-100 text-green-700' :
+                  status === 'Unsaved' ? 'bg-yellow-100 text-yellow-700' :
+                  status.includes('Error') || status.includes('Failed') ? 'bg-red-100 text-red-700' :
+                  'bg-gray-100 text-gray-700'
+                }`}>
+                  {status}
+                </span>
               )}
-              {(status.includes('Error') || status.includes('Failed')) && (
-                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
+              {/* Word count badge */}
+              {wordCount > 0 && (
+                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg">
+                  {wordCount} {wordCount === 1 ? 'Word' : 'Words'}
+                </span>
               )}
-              {(status.includes('Saving') || status.includes('Clearing')) && (
-                <svg className="animate-spin w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              )}
-              {status}
-            </span>
+            </>
           )}
         </div>
         
         <div className="flex gap-2">
-          <button
+          {/* <button
             onClick={() => {
               if (content) {
                 saveNotes(content);
@@ -1530,7 +1747,7 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
             </svg>
             Save
-          </button>
+          </button> */}
           <button
             onClick={() => setShowClearConfirm(true)}
             className="flex items-center gap-2 px-3 py-2 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
@@ -1620,7 +1837,7 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
       )}
 
       {/* Novel Editor with graceful degradation */}
-      <div className="novel-editor-container border border-gray-300 rounded-lg p-4 min-h-[400px] max-h-[600px] overflow-auto">
+      <div className="novel-editor-container p-4 min-h-[400px] max-h-[600px] overflow-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-32">
             <div className="flex items-center text-gray-500">
@@ -1634,7 +1851,7 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
         ) : editorLoadError ? (
           <FallbackEditor 
             content={content}
-            onContentChange={handleContentChange}
+            onContentChange={handleFallbackContentChange}
             error={editorLoadError}
             onRetry={() => {
               setEditorLoadError(null);
@@ -1653,7 +1870,7 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
               </div>
             )}
             <NovelEditorWrapper
-              key={`novel-editor-${problem.id}-${problem.notes ? problem.notes.length : 0}`}
+              key={`novel-editor-${problem.id}`}
               content={content || { type: 'doc', content: [{ type: 'paragraph', content: [] }] }}
               onContentChange={handleContentChange}
               onError={(error) => {
@@ -1666,7 +1883,8 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
               editorRef={editorRef}
             />
           </>
-        )}
+        )
+        }
       </div>
 
       {/* Clear Confirmation Dialog */}

@@ -895,18 +895,6 @@ body {
     margin-top: 20px;
 }
 
-.notes-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #f3f4f6;
-    font-size: 16px;
-    font-weight: 600;
-    color: #374151;
-}
-
 .notes-header span:first-child {
     font-weight: 600;
     color: #374151;

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slash Command Autosave Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>Slash Command Autosave Fix Test</h1>
+    
+    <div class="test-container info">
+        <h2>What Was Fixed</h2>
+        <p><strong>Problem:</strong> When typing "/" in NovelNotesTab, autosave would trigger immediately, 
+        causing the slash command menu to disappear and losing cursor control.</p>
+        
+        <p><strong>Root Cause:</strong> Novel editor's onUpdate callback fires on every keystroke, 
+        including slash commands, triggering autosave before command selection.</p>
+        
+        <p><strong>Solution:</strong> Modified onUpdate to detect slash command interactions and 
+        delay autosave during these interactions.</p>
+    </div>
+
+    <div class="test-container success">
+        <h2>Implementation Details</h2>
+        <ul>
+            <li>✅ Slash command detection in onUpdate callback</li>
+            <li>✅ Content updates without immediate autosave during slash commands</li>
+            <li>✅ Delayed save (1.5s) after slash command interaction</li>
+            <li>✅ Proper cleanup of timeouts and pending saves</li>
+            <li>✅ Normal autosave behavior for regular typing</li>
+        </ul>
+    </div>
+
+    <div class="test-container">
+        <h2>Testing Instructions</h2>
+        <ol>
+            <li>Open your application with NovelNotesTab</li>
+            <li>Click in the editor to focus</li>
+            <li>Type "/" character</li>
+            <li>Verify the slash command menu appears and stays visible</li>
+            <li>Continue typing command names (e.g., "heading", "code")</li>
+            <li>Select a command or press Escape</li>
+            <li>Verify normal typing still triggers autosave</li>
+        </ol>
+    </div>
+</body>
+</html>
