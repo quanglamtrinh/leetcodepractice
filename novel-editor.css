@@ -549,12 +549,7 @@
     width: 100%;
     justify-content: flex-end;
   }
-  
-  .novel-editor-container {
-    padding: 8px;
-    min-height: 250px;
-  }
-  
+
   .novel-editor .ProseMirror {
     padding: 0.5rem;
     min-height: 200px;
