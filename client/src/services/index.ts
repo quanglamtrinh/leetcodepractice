@@ -4,6 +4,7 @@ import { ForgettingRecoveryEngine } from './forgettingRecoveryEngine';
 import { IntensiveRecoveryManager } from './intensiveRecoveryManager';
 import { ReviewService } from './reviewService';
 import { api } from './api';
+import { CalendarService, calendarService } from './calendarService';
 
 export { ReviewScheduler } from './reviewScheduler';
 export type { ReviewStage, ReviewScheduleResult, CustomReviewOptions } from './reviewScheduler';
@@ -36,6 +37,26 @@ export type {
 export { api, reviewApi } from './api';
 export type { ApiResponse, ApiError } from './api';
 
+// Calendar services
+export { CalendarService, calendarService } from './calendarService';
+export type { 
+  CalendarEvent, 
+  CalendarData, 
+  DayDetails, 
+  CreateEventRequest, 
+  UpdateEventRequest,
+  CalendarStats,
+  Task,
+  Note,
+  PracticeSession,
+  Event,
+  Problem,
+  CalendarView,
+  EventType,
+  TaskStatus,
+  Priority
+} from '../types/calendar';
+
 // Convenience exports for common use cases
 export const SpacedRepetition = {
   // Main service for most operations
@@ -45,6 +66,16 @@ export const SpacedRepetition = {
   ReviewScheduler: ReviewScheduler,
   ForgettingRecoveryEngine: ForgettingRecoveryEngine,
   IntensiveRecoveryManager: IntensiveRecoveryManager,
+  
+  // API access
+  api: api
+};
+
+// Calendar convenience export
+export const Calendar = {
+  // Main calendar service
+  CalendarService: CalendarService,
+  service: calendarService,
   
   // API access
   api: api
