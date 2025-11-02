@@ -24,7 +24,7 @@ const CalendarCellTooltip: React.FC<CalendarCellTooltipProps> = ({
   const tasks = events.filter(e => e.event_type === 'task');
   const notes = events.filter(e => e.event_type === 'note');
   const calendarEvents = events.filter(e => e.event_type === 'reminder');
-  const practiceSessions = events.filter(e => e.event_type === 'practice_session');
+  const solvedProblemEvents = events.filter(e => e.event_type === 'solved_problem');
 
   const tooltipStyle: React.CSSProperties = {
     position: 'fixed',
@@ -140,26 +140,26 @@ const CalendarCellTooltip: React.FC<CalendarCellTooltipProps> = ({
           </div>
         )}
         
-        {practiceSessions.length > 0 && (
+        {solvedProblemEvents.length > 0 && (
           <div className="tooltip-section">
             <div className="tooltip-section-title">
-              Practice Sessions ({practiceSessions.length})
+              Solved Problems ({solvedProblemEvents.length})
             </div>
             <div className="tooltip-items">
-              {practiceSessions.slice(0, 2).map(session => (
-                <div key={session.id} className="tooltip-item session-item">
+              {solvedProblemEvents.slice(0, 2).map(event => (
+                <div key={event.id} className="tooltip-item session-item">
                   <span className="session-dot"></span>
-                  <span className="item-title">{session.title}</span>
-                  {session.time_spent && (
+                  <span className="item-title">{event.title}</span>
+                  {event.time_spent && (
                     <span className="session-time">
-                      {Math.round(session.time_spent)}m
+                      {Math.round(event.time_spent)}m
                     </span>
                   )}
                 </div>
               ))}
-              {practiceSessions.length > 2 && (
+              {solvedProblemEvents.length > 2 && (
                 <div className="tooltip-item more-items">
-                  +{practiceSessions.length - 2} more sessions
+                  +{solvedProblemEvents.length - 2} more problems
                 </div>
               )}
             </div>

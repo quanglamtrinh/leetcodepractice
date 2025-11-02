@@ -98,7 +98,7 @@ const CalendarWeekView: React.FC<CalendarWeekViewProps> = React.memo(({
         case 'task': return '📋';
         case 'note': return '📝';
         case 'reminder': return '📅';
-        case 'practice_session': return '💻';
+        case 'solved_problem': return '🎯';
         default: return '📅';
       }
     };

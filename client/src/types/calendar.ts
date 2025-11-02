@@ -2,7 +2,7 @@
 
 export type CalendarView = 'month' | 'week' | 'day';
 
-export type EventType = 'task' | 'note' | 'practice_session' | 'reminder';
+export type EventType = 'task' | 'note' | 'solved_problem' | 'reminder';
 
 export type TaskStatus = 'pending' | 'completed' | 'overdue';
 
@@ -35,11 +35,11 @@ export interface Note extends CalendarEvent {
   event_type: 'note';
 }
 
-export interface PracticeSession extends CalendarEvent {
-  event_type: 'practice_session';
+export interface SolvedProblem extends CalendarEvent {
+  event_type: 'solved_problem';
   problem_id: number;
-  time_spent: number;
-  success_rate: number;
+  time_spent?: number;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
 }
 
 export interface Event extends CalendarEvent {
@@ -71,7 +71,7 @@ export interface DayDetails {
   solvedProblems: Problem[];
   tasks: Task[];
   notes: Note[];
-  practiceSessions: PracticeSession[];
+  solvedProblemEvents: SolvedProblem[];
   dayNotes?: string; // Rich text notes for the entire day
 }
 
@@ -85,7 +85,7 @@ export interface CalendarStats {
   completedTasks: number;
   pendingTasks: number;
   overdueTasks: number;
-  totalPracticeSessions: number;
+  totalSolvedProblems: number;
   totalTimeSpent: number; // in minutes
 }
 

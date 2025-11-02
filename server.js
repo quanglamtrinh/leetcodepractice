@@ -165,9 +165,27 @@ app.put('/api/problems/:id/progress', async (req, res) => {
       }
 
       // Add initial review session using the comprehensive schema function
-        await pool.query(`
+      await pool.query(`
         SELECT add_review_session($1, 'remembered', $2, NULL)
       `, [id, notes || 'Initial solve']);
+
+      // Auto-create solved problem event when problem is marked as solved
+      try {
+        const solveDate = solved_date ? solved_date.split('T')[0] : new Date().toISOString().split('T')[0];
+        const solvedProblemResult = await pool.query(`
+          SELECT create_solved_problem_event($1, $2, $3, $4)
+        `, [
+          id, 
+          solveDate,
+          null, // time_spent_minutes - can be added later if needed
+          notes || 'Problem solved successfully'
+        ]);
+
+        console.log(`✅ Solved problem event created for problem ${id}: Event ID ${solvedProblemResult.rows[0].create_solved_problem_event}`);
+      } catch (solvedProblemError) {
+        // Log error but don't fail the main operation
+        console.error('⚠️  Failed to create solved problem event:', solvedProblemError.message);
+      }
 
       res.json(result.rows[0]);
     } else {
@@ -192,6 +210,23 @@ app.put('/api/problems/:id/progress', async (req, res) => {
       await pool.query(`
         DELETE FROM review_history WHERE problem_id = $1
       `, [id]);
+
+      // Archive solved problem events when problem is marked as unsolved
+      try {
+        const archiveResult = await pool.query(`
+          UPDATE calendar_events 
+          SET is_archived = true, updated_at = CURRENT_TIMESTAMP
+          WHERE problem_id = $1 AND event_type = 'solved_problem'
+          RETURNING id, title
+        `, [id]);
+
+        if (archiveResult.rows.length > 0) {
+          console.log(`📦 Archived ${archiveResult.rows.length} solved problem event(s) for problem ${id}`);
+        }
+      } catch (archiveError) {
+        // Log error but don't fail the main operation
+        console.error('⚠️  Failed to archive solved problem events:', archiveError.message);
+      }
 
       res.json(result.rows[0]);
     }
@@ -2133,6 +2168,763 @@ app.post('/api/problems', async (req, res) => {
   } catch (err) {
     console.error('Error adding problem:', err);
     res.status(500).json({ error: 'Failed to add problem' });
+  }
+});
+
+// Calendar API Endpoints
+
+// Get calendar events for a date range
+app.get('/api/calendar/events', async (req, res) => {
+  try {
+    const { start_date, end_date, event_types, include_archived = 'false' } = req.query;
+    
+    if (!start_date || !end_date) {
+      return res.status(400).json({ 
+        error: 'start_date and end_date are required',
+        example: '/api/calendar/events?start_date=2025-01-01&end_date=2025-01-31'
+      });
+    }
+    
+    // Parse event types if provided
+    let eventTypesArray = null;
+    if (event_types) {
+      eventTypesArray = event_types.split(',').map(type => type.trim());
+    }
+    
+    const result = await pool.query(`
+      SELECT * FROM get_calendar_events($1, $2, $3, $4)
+    `, [start_date, end_date, eventTypesArray, include_archived === 'true']);
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching calendar events:', err);
+    res.status(500).json({ error: 'Failed to fetch calendar events' });
+  }
+});
+
+// Get events for a specific day
+app.get('/api/calendar/day/:date', async (req, res) => {
+  try {
+    const { date } = req.params;
+    
+    // Validate date format
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ 
+        error: 'Invalid date format. Use YYYY-MM-DD',
+        example: '/api/calendar/day/2025-01-15'
+      });
+    }
+    
+    const result = await pool.query(`
+      SELECT * FROM get_events_for_day($1)
+    `, [date]);
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching day events:', err);
+    res.status(500).json({ error: 'Failed to fetch day events' });
+  }
+});
+
+// Get calendar statistics for a date range
+app.get('/api/calendar/stats', async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+    
+    if (!start_date || !end_date) {
+      return res.status(400).json({ 
+        error: 'start_date and end_date are required',
+        example: '/api/calendar/stats?start_date=2025-01-01&end_date=2025-01-31'
+      });
+    }
+    
+    const result = await pool.query(`
+      SELECT * FROM get_calendar_stats($1, $2)
+    `, [start_date, end_date]);
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error fetching calendar stats:', err);
+    res.status(500).json({ error: 'Failed to fetch calendar statistics' });
+  }
+});
+
+// Get overdue tasks
+app.get('/api/calendar/overdue-tasks', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT * FROM get_overdue_tasks()
+    `);
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching overdue tasks:', err);
+    res.status(500).json({ error: 'Failed to fetch overdue tasks' });
+  }
+});
+
+// Get upcoming tasks (next 7 days)
+app.get('/api/calendar/upcoming-tasks', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT * FROM upcoming_tasks
+    `);
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching upcoming tasks:', err);
+    res.status(500).json({ error: 'Failed to fetch upcoming tasks' });
+  }
+});
+
+// Practice session history endpoint removed - problems now appear in solved problems panel
+
+// Get monthly calendar overview
+app.get('/api/calendar/monthly-overview', async (req, res) => {
+  try {
+    const { months = 12 } = req.query;
+    
+    const result = await pool.query(`
+      SELECT * FROM calendar_monthly_overview
+      LIMIT $1
+    `, [parseInt(months)]);
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching monthly overview:', err);
+    res.status(500).json({ error: 'Failed to fetch monthly overview' });
+  }
+});
+
+// Calendar Event Management Endpoints (CRUD)
+
+// Create a new calendar event
+app.post('/api/calendar/events', async (req, res) => {
+  try {
+    const {
+      event_type,
+      title,
+      description,
+      event_date,
+      event_time,
+      duration_minutes,
+      all_day = false,
+      task_status = 'pending',
+      due_date,
+      priority = 'medium',
+      note_content,
+      is_pinned = false,
+      problem_id,
+      time_spent_minutes,
+      was_successful,
+      content_html,
+      parent_event_id,
+      tags,
+      color,
+      reminder_minutes_before
+    } = req.body;
+
+    // Validate required fields
+    if (!event_type || !title || !event_date) {
+      return res.status(400).json({
+        error: 'event_type, title, and event_date are required'
+      });
+    }
+
+    // Validate event_type
+    const validEventTypes = ['task', 'note', 'solved_problem', 'reminder'];
+    if (!validEventTypes.includes(event_type)) {
+      return res.status(400).json({
+        error: `event_type must be one of: ${validEventTypes.join(', ')}`
+      });
+    }
+
+    // Validate date format
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(event_date)) {
+      return res.status(400).json({
+        error: 'event_date must be in YYYY-MM-DD format'
+      });
+    }
+
+    // Type-specific validations
+    if (event_type === 'note' && !note_content) {
+      return res.status(400).json({
+        error: 'note_content is required for note events'
+      });
+    }
+
+    if (event_type === 'solved_problem' && !problem_id) {
+      return res.status(400).json({
+        error: 'problem_id is required for solved_problem events'
+      });
+    }
+
+    const result = await pool.query(`
+      INSERT INTO calendar_events (
+        event_type, title, description, event_date, event_time, duration_minutes,
+        all_day, task_status, due_date, priority, note_content, is_pinned,
+        problem_id, time_spent_minutes, was_successful, content_html,
+        parent_event_id, tags, color, reminder_minutes_before
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+      ) RETURNING *
+    `, [
+      event_type, title, description, event_date, event_time, duration_minutes,
+      all_day, task_status, due_date, priority, note_content, is_pinned,
+      problem_id, time_spent_minutes, was_successful, content_html,
+      parent_event_id, tags, color, reminder_minutes_before
+    ]);
+
+    res.status(201).json({
+      message: 'Calendar event created successfully',
+      event: result.rows[0]
+    });
+
+  } catch (err) {
+    console.error('Error creating calendar event:', err);
+    if (err.code === '23503') {
+      res.status(400).json({ error: 'Referenced problem_id or parent_event_id does not exist' });
+    } else if (err.code === '23514') {
+      res.status(400).json({ error: 'Constraint violation: check your input values' });
+    } else {
+      res.status(500).json({ error: 'Failed to create calendar event' });
+    }
+  }
+});
+
+// Update a calendar event
+app.put('/api/calendar/events/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      event_type,
+      title,
+      description,
+      event_date,
+      event_time,
+      duration_minutes,
+      all_day,
+      task_status,
+      due_date,
+      completed_date,
+      priority,
+      note_content,
+      is_pinned,
+      problem_id,
+      time_spent_minutes,
+      was_successful,
+      content_html,
+      parent_event_id,
+      tags,
+      color,
+      is_archived,
+      reminder_minutes_before,
+      is_visible
+    } = req.body;
+
+    // Check if event exists
+    const existingEvent = await pool.query('SELECT * FROM calendar_events WHERE id = $1', [id]);
+    if (existingEvent.rows.length === 0) {
+      return res.status(404).json({ error: 'Calendar event not found' });
+    }
+
+    // Validate event_type if provided
+    if (event_type) {
+      const validEventTypes = ['task', 'note', 'solved_problem', 'reminder'];
+      if (!validEventTypes.includes(event_type)) {
+        return res.status(400).json({
+          error: `event_type must be one of: ${validEventTypes.join(', ')}`
+        });
+      }
+    }
+
+    // Validate date format if provided
+    if (event_date && !/^\d{4}-\d{2}-\d{2}$/.test(event_date)) {
+      return res.status(400).json({
+        error: 'event_date must be in YYYY-MM-DD format'
+      });
+    }
+
+    // Handle task completion
+    const finalCompletedDate = task_status === 'completed' && !completed_date 
+      ? new Date().toISOString() 
+      : completed_date;
+
+    const result = await pool.query(`
+      UPDATE calendar_events SET
+        event_type = COALESCE($2, event_type),
+        title = COALESCE($3, title),
+        description = COALESCE($4, description),
+        event_date = COALESCE($5, event_date),
+        event_time = COALESCE($6, event_time),
+        duration_minutes = COALESCE($7, duration_minutes),
+        all_day = COALESCE($8, all_day),
+        task_status = COALESCE($9, task_status),
+        due_date = COALESCE($10, due_date),
+        completed_date = COALESCE($11, completed_date),
+        priority = COALESCE($12, priority),
+        note_content = COALESCE($13, note_content),
+        is_pinned = COALESCE($14, is_pinned),
+        problem_id = COALESCE($15, problem_id),
+        time_spent_minutes = COALESCE($16, time_spent_minutes),
+        was_successful = COALESCE($17, was_successful),
+        content_html = COALESCE($18, content_html),
+        parent_event_id = COALESCE($19, parent_event_id),
+        tags = COALESCE($20, tags),
+        color = COALESCE($21, color),
+        is_archived = COALESCE($22, is_archived),
+        reminder_minutes_before = COALESCE($23, reminder_minutes_before),
+        is_visible = COALESCE($24, is_visible),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING *
+    `, [
+      id, event_type, title, description, event_date, event_time, duration_minutes,
+      all_day, task_status, due_date, finalCompletedDate, priority, note_content, is_pinned,
+      problem_id, time_spent_minutes, was_successful, content_html,
+      parent_event_id, tags, color, is_archived, reminder_minutes_before, is_visible
+    ]);
+
+    res.json({
+      message: 'Calendar event updated successfully',
+      event: result.rows[0]
+    });
+
+  } catch (err) {
+    console.error('Error updating calendar event:', err);
+    if (err.code === '23503') {
+      res.status(400).json({ error: 'Referenced problem_id or parent_event_id does not exist' });
+    } else if (err.code === '23514') {
+      res.status(400).json({ error: 'Constraint violation: check your input values' });
+    } else {
+      res.status(500).json({ error: 'Failed to update calendar event' });
+    }
+  }
+});
+
+// Delete a calendar event
+app.delete('/api/calendar/events/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { soft_delete = 'false' } = req.query;
+
+    // Check if event exists
+    const existingEvent = await pool.query('SELECT * FROM calendar_events WHERE id = $1', [id]);
+    if (existingEvent.rows.length === 0) {
+      return res.status(404).json({ error: 'Calendar event not found' });
+    }
+
+    if (soft_delete === 'true') {
+      // Soft delete - mark as archived
+      const result = await pool.query(`
+        UPDATE calendar_events 
+        SET is_archived = true, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING *
+      `, [id]);
+
+      res.json({
+        message: 'Calendar event archived successfully',
+        event: result.rows[0]
+      });
+    } else {
+      // Hard delete
+      await pool.query('DELETE FROM calendar_events WHERE id = $1', [id]);
+      
+      res.json({
+        message: 'Calendar event deleted successfully',
+        deleted_id: parseInt(id)
+      });
+    }
+
+  } catch (err) {
+    console.error('Error deleting calendar event:', err);
+    res.status(500).json({ error: 'Failed to delete calendar event' });
+  }
+});
+
+// Get calendar events with filtering
+app.get('/api/calendar/events/filter', async (req, res) => {
+  try {
+    const {
+      event_type,
+      task_status,
+      priority,
+      is_archived = 'false',
+      is_visible = 'true',
+      problem_id,
+      start_date,
+      end_date,
+      limit = 100,
+      offset = 0
+    } = req.query;
+
+    let whereConditions = [];
+    let queryParams = [];
+    let paramIndex = 1;
+
+    // Build dynamic WHERE clause
+    if (event_type) {
+      whereConditions.push(`ce.event_type = $${paramIndex}`);
+      queryParams.push(event_type);
+      paramIndex++;
+    }
+
+    if (task_status) {
+      whereConditions.push(`ce.task_status = $${paramIndex}`);
+      queryParams.push(task_status);
+      paramIndex++;
+    }
+
+    if (priority) {
+      whereConditions.push(`ce.priority = $${paramIndex}`);
+      queryParams.push(priority);
+      paramIndex++;
+    }
+
+    if (problem_id) {
+      whereConditions.push(`ce.problem_id = $${paramIndex}`);
+      queryParams.push(parseInt(problem_id));
+      paramIndex++;
+    }
+
+    if (start_date) {
+      whereConditions.push(`ce.event_date >= $${paramIndex}`);
+      queryParams.push(start_date);
+      paramIndex++;
+    }
+
+    if (end_date) {
+      whereConditions.push(`ce.event_date <= $${paramIndex}`);
+      queryParams.push(end_date);
+      paramIndex++;
+    }
+
+    whereConditions.push(`ce.is_archived = $${paramIndex}`);
+    queryParams.push(is_archived === 'true');
+    paramIndex++;
+
+    whereConditions.push(`ce.is_visible = $${paramIndex}`);
+    queryParams.push(is_visible === 'true');
+    paramIndex++;
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    const query = `
+      SELECT ce.*, p.title as problem_title, p.difficulty as problem_difficulty
+      FROM calendar_events ce
+      LEFT JOIN problems p ON ce.problem_id = p.id
+      ${whereClause}
+      ORDER BY ce.event_date DESC, ce.created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    queryParams.push(parseInt(limit), parseInt(offset));
+
+    const result = await pool.query(query, queryParams);
+
+    // Get total count for pagination
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM calendar_events ce
+      LEFT JOIN problems p ON ce.problem_id = p.id
+      ${whereClause}
+    `;
+
+    const countResult = await pool.query(countQuery, queryParams.slice(0, -2)); // Remove limit and offset
+
+    res.json({
+      events: result.rows,
+      pagination: {
+        total: parseInt(countResult.rows[0].total),
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        has_more: parseInt(offset) + parseInt(limit) < parseInt(countResult.rows[0].total)
+      }
+    });
+
+  } catch (err) {
+    console.error('Error filtering calendar events:', err);
+    res.status(500).json({ error: 'Failed to filter calendar events' });
+  }
+});
+
+// Practice session creation endpoint removed - problems now appear in solved problems panel when marked as solved
+
+// Get practice session statistics
+// Practice session statistics endpoint removed
+// app.get('/api/calendar/practice-stats', async (req, res) => {
+  try {
+    const { 
+      start_date, 
+      end_date, 
+      problem_id,
+      group_by = 'day' // day, week, month
+    } = req.query;
+
+    let dateFilter = '';
+    let joinedDateFilter = ''; // For queries with table joins
+    let params = [];
+    let paramIndex = 1;
+
+    if (start_date) {
+      dateFilter += ` AND event_date >= $${paramIndex}`;
+      joinedDateFilter += ` AND ce.event_date >= $${paramIndex}`;
+      params.push(start_date);
+      paramIndex++;
+    }
+
+    if (end_date) {
+      dateFilter += ` AND event_date <= $${paramIndex}`;
+      joinedDateFilter += ` AND ce.event_date <= $${paramIndex}`;
+      params.push(end_date);
+      paramIndex++;
+    }
+
+    if (problem_id) {
+      dateFilter += ` AND problem_id = $${paramIndex}`;
+      joinedDateFilter += ` AND ce.problem_id = $${paramIndex}`;
+      params.push(parseInt(problem_id));
+      paramIndex++;
+    }
+
+    // Get overall statistics
+    const statsQuery = `
+      SELECT 
+        COUNT(*) as total_sessions,
+        COUNT(CASE WHEN was_successful = true THEN 1 END) as successful_sessions,
+        COUNT(CASE WHEN was_successful = false THEN 1 END) as failed_sessions,
+        ROUND(
+          COUNT(CASE WHEN was_successful = true THEN 1 END) * 100.0 / COUNT(*), 2
+        ) as success_rate,
+        COALESCE(SUM(time_spent_minutes), 0) as total_time_minutes,
+        COALESCE(AVG(time_spent_minutes), 0) as avg_time_per_session,
+        COUNT(DISTINCT problem_id) as unique_problems_practiced,
+        COUNT(DISTINCT event_date) as active_days
+      FROM calendar_events 
+      WHERE event_type = 'solved_problem' 
+        AND is_archived = false
+        ${dateFilter}
+    `;
+
+    const statsResult = await pool.query(statsQuery, params);
+
+    // Get time-based breakdown
+    let groupByClause;
+    switch (group_by) {
+      case 'week':
+        groupByClause = "DATE_TRUNC('week', event_date)";
+        break;
+      case 'month':
+        groupByClause = "DATE_TRUNC('month', event_date)";
+        break;
+      default:
+        groupByClause = 'event_date';
+    }
+
+    const timeBreakdownQuery = `
+      SELECT 
+        ${groupByClause} as period,
+        COUNT(*) as sessions,
+        COUNT(CASE WHEN was_successful = true THEN 1 END) as successful,
+        COALESCE(SUM(time_spent_minutes), 0) as total_time
+      FROM calendar_events 
+      WHERE event_type = 'solved_problem' 
+        AND is_archived = false
+        ${dateFilter}
+      GROUP BY ${groupByClause}
+      ORDER BY period DESC
+      LIMIT 30
+    `;
+
+    const timeBreakdownResult = await pool.query(timeBreakdownQuery, params);
+
+    // Get problem-wise statistics
+    const problemStatsQuery = `
+      SELECT 
+        p.id,
+        p.title,
+        p.difficulty,
+        COUNT(ce.id) as session_count,
+        COUNT(CASE WHEN ce.was_successful = true THEN 1 END) as successful_count,
+        COALESCE(SUM(ce.time_spent_minutes), 0) as total_time,
+        MAX(ce.event_date) as last_practiced
+      FROM problems p
+      INNER JOIN calendar_events ce ON p.id = ce.problem_id
+      WHERE ce.event_type = 'solved_problem' 
+        AND ce.is_archived = false
+        ${joinedDateFilter}
+      GROUP BY p.id, p.title, p.difficulty
+      ORDER BY session_count DESC, last_practiced DESC
+      LIMIT 20
+    `;
+
+    const problemStatsResult = await pool.query(problemStatsQuery, params);
+
+    res.json({
+      overall_stats: statsResult.rows[0],
+      time_breakdown: timeBreakdownResult.rows,
+      problem_stats: problemStatsResult.rows,
+      filters: {
+        start_date,
+        end_date,
+        problem_id,
+        group_by
+      }
+    });
+
+  } catch (err) {
+    console.error('Error fetching practice stats:', err);
+    res.status(500).json({ error: 'Failed to fetch practice statistics' });
+  }
+});
+
+// Bulk operations for calendar events
+app.post('/api/calendar/events/bulk', async (req, res) => {
+  try {
+    const { action, event_ids, updates } = req.body;
+
+    if (!action || !event_ids || !Array.isArray(event_ids)) {
+      return res.status(400).json({
+        error: 'action and event_ids array are required'
+      });
+    }
+
+    const validActions = ['archive', 'unarchive', 'delete', 'update'];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({
+        error: `action must be one of: ${validActions.join(', ')}`
+      });
+    }
+
+    let result;
+    const placeholders = event_ids.map((_, index) => `$${index + 1}`).join(',');
+
+    switch (action) {
+      case 'archive':
+        result = await pool.query(`
+          UPDATE calendar_events 
+          SET is_archived = true, updated_at = CURRENT_TIMESTAMP
+          WHERE id IN (${placeholders})
+          RETURNING id, title, is_archived
+        `, event_ids);
+        break;
+
+      case 'unarchive':
+        result = await pool.query(`
+          UPDATE calendar_events 
+          SET is_archived = false, updated_at = CURRENT_TIMESTAMP
+          WHERE id IN (${placeholders})
+          RETURNING id, title, is_archived
+        `, event_ids);
+        break;
+
+      case 'delete':
+        result = await pool.query(`
+          DELETE FROM calendar_events 
+          WHERE id IN (${placeholders})
+          RETURNING id, title
+        `, event_ids);
+        break;
+
+      case 'update':
+        if (!updates || typeof updates !== 'object') {
+          return res.status(400).json({
+            error: 'updates object is required for update action'
+          });
+        }
+
+        // Build dynamic update query
+        const updateFields = Object.keys(updates)
+          .filter(key => updates[key] !== undefined)
+          .map((key, index) => `${key} = $${event_ids.length + index + 1}`)
+          .join(', ');
+
+        if (updateFields.length === 0) {
+          return res.status(400).json({ error: 'No valid update fields provided' });
+        }
+
+        const updateValues = Object.keys(updates)
+          .filter(key => updates[key] !== undefined)
+          .map(key => updates[key]);
+
+        result = await pool.query(`
+          UPDATE calendar_events 
+          SET ${updateFields}, updated_at = CURRENT_TIMESTAMP
+          WHERE id IN (${placeholders})
+          RETURNING id, title
+        `, [...event_ids, ...updateValues]);
+        break;
+    }
+
+    res.json({
+      message: `Bulk ${action} completed successfully`,
+      affected_events: result.rows,
+      count: result.rows.length
+    });
+
+  } catch (err) {
+    console.error('Error in bulk calendar operation:', err);
+    res.status(500).json({ error: 'Failed to perform bulk operation' });
+  }
+});
+
+// Day Notes API Endpoints
+app.get('/api/calendar/day-notes/:date', async (req, res) => {
+  try {
+    const { date } = req.params;
+    
+    // Validate date format
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+    }
+
+    const result = await pool.query(`
+      SELECT notes FROM day_notes WHERE date = $1
+    `, [date]);
+
+    res.json({ 
+      notes: result.rows.length > 0 ? result.rows[0].notes : '' 
+    });
+  } catch (error) {
+    console.error('Error fetching day notes:', error);
+    res.status(500).json({ error: 'Failed to fetch day notes' });
+  }
+});
+
+app.put('/api/calendar/day-notes/:date', async (req, res) => {
+  try {
+    const { date } = req.params;
+    const { notes } = req.body;
+    
+    // Validate date format
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+    }
+
+    // Validate notes
+    if (typeof notes !== 'string') {
+      return res.status(400).json({ error: 'Notes must be a string' });
+    }
+
+    // Upsert day notes
+    const result = await pool.query(`
+      INSERT INTO day_notes (date, notes, created_at, updated_at)
+      VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT (date) 
+      DO UPDATE SET 
+        notes = EXCLUDED.notes,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING date, notes
+    `, [date, notes]);
+
+    res.json({ 
+      success: true,
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error saving day notes:', error);
+    res.status(500).json({ error: 'Failed to save day notes' });
   }
 });
 

@@ -10,7 +10,7 @@ import {
   CalendarView,
   Task,
   Note,
-  PracticeSession,
+  SolvedProblem,
   Event,
   Problem
 } from '../types/calendar';
@@ -144,7 +144,7 @@ export class CalendarService {
         // Separate events by type
         const tasks = events.filter(e => e.event_type === 'task') as Task[];
         const notes = events.filter(e => e.event_type === 'note') as Note[];
-        const practiceSessions = events.filter(e => e.event_type === 'practice_session') as PracticeSession[];
+        const solvedProblemEvents = events.filter(e => e.event_type === 'solved_problem') as SolvedProblem[];
 
         // Fetch day notes
         const dayNotes = await this.getDayNotes(date);
@@ -155,7 +155,7 @@ export class CalendarService {
           solvedProblems: problems,
           tasks: tasks,
           notes: notes,
-          practiceSessions: practiceSessions,
+          solvedProblemEvents: solvedProblemEvents,
           dayNotes: dayNotes
         };
       } catch (error) {
@@ -167,7 +167,7 @@ export class CalendarService {
           solvedProblems: [],
           tasks: [],
           notes: [],
-          practiceSessions: [],
+          solvedProblemEvents: [],
           dayNotes: ''
         };
       }

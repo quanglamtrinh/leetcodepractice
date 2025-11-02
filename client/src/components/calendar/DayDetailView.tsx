@@ -5,7 +5,7 @@ import TaskForm from './TaskForm';
 import EventForm from './EventForm';
 import NoteForm from './NoteForm';
 import DayNotesEditor from './DayNotesEditor';
-import { DayDetails, Problem, Task, Event, Note } from '../../types/calendar';
+import { DayDetails, Problem, Task, Event, Note, SolvedProblem } from '../../types/calendar';
 import { calendarService } from '../../services/calendarService';
 import { formatDateToISO, formatDateForDisplay, isToday } from '../../utils/dateUtils';
 import './DayDetailView.css';
@@ -31,12 +31,10 @@ const DayDetailView: React.FC<DayDetailViewProps> = ({
     tasks: boolean;
     events: boolean;
     notes: boolean;
-    sessions: boolean;
   }>({
     tasks: true,
     events: true,
-    notes: true,
-    sessions: true
+    notes: true
   });
 
   // Modal states
@@ -579,44 +577,7 @@ const DayDetailView: React.FC<DayDetailViewProps> = ({
               )}
             </div>
 
-            {/* Practice Sessions Section */}
-            {dayDetails.practiceSessions.length > 0 && (
-              <div className="activity-section">
-                <div className="section-header" onClick={() => toggleSection('sessions')}>
-                  <h3>
-                    <span className={`section-toggle ${expandedSections.sessions ? 'expanded' : ''}`}>
-                      ▶
-                    </span>
-                    🎯 Practice Sessions ({dayDetails.practiceSessions.length})
-                  </h3>
-                </div>
-                {expandedSections.sessions && (
-                  <div className="section-content">
-                    <div className="sessions-list">
-                      {dayDetails.practiceSessions.map((session) => (
-                        <div key={session.id} className="session-item">
-                          <div className="session-content">
-                            <div className="session-title">{session.title}</div>
-                            <div className="session-meta">
-                              {session.time_spent && (
-                                <span className="time-spent">
-                                  ⏱️ {session.time_spent} min
-                                </span>
-                              )}
-                              {session.success_rate !== undefined && (
-                                <span className="success-rate">
-                                  📊 {session.success_rate}% success
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+
           </div>
 
           {/* Right Panel - Day Notes (with slash commands) */}

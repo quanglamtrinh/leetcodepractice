@@ -48,7 +48,7 @@ export type {
   CalendarStats,
   Task,
   Note,
-  PracticeSession,
+  SolvedProblem,
   Event,
   Problem,
   CalendarView,
