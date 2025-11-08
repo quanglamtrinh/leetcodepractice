@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Day Notes Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin: 10px 0;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Day Notes Test</h1>
+    
+    <div class="test-section">
+        <h3>Current Date: <span id="currentDate">2024-11-04</span></h3>
+        <textarea id="notesInput" placeholder="Enter your notes here..."></textarea>
+        <br>
+        <button onclick="saveNotes()">Save Notes</button>
+        <button onclick="loadNotes()">Load Notes</button>
+        <button onclick="clearNotes()">Clear Notes</button>
+        <button onclick="switchDate()">Switch to Different Date</button>
+        <button onclick="switchBack()">Switch Back</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Log</h3>
+        <div id="log" class="log"></div>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <script>
+        let currentDate = '2024-11-04';
+        let originalDate = '2024-11-04';
+        const serverUrl = 'http://localhost:3001';
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+
+        async function saveNotes() {
+            const notes = document.getElementById('notesInput').value;
+            
+            if (!notes.trim()) {
+                log('❌ No notes to save');
+                return;
+            }
+
+            try {
+                log(`💾 Saving notes for ${currentDate}...`);
+                
+                // Create proper JSON structure
+                const notesJson = JSON.stringify({
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'paragraph',
+                            content: [
+                                { type: 'text', text: notes }
+                            ]
+                        }
+                    ]
+                });
+
+                const response = await fetch(`${serverUrl}/api/calendar/day-notes/${currentDate}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ notes: notesJson })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                log(`✅ Notes saved successfully: ${result.success}`);
+                
+                // Immediately verify by loading
+                setTimeout(loadNotes, 100);
+                
+            } catch (error) {
+                log(`❌ Error saving notes: ${error.message}`);
+            }
+        }
+
+        async function loadNotes() {
+            try {
+                log(`📖 Loading notes for ${currentDate}...`);
+                
+                const response = await fetch(`${serverUrl}/api/calendar/day-notes/${currentDate}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                log(`📝 Loaded notes: ${result.notes ? 'Has content' : 'Empty'}`);
+                
+                if (result.notes) {
+                    try {
+                        const parsed = JSON.parse(result.notes);
+                        if (parsed.content && parsed.content[0] && parsed.content[0].content) {
+                            const text = parsed.content[0].content[0]?.text || '';
+                            document.getElementById('notesInput').value = text;
+                            log(`✅ Extracted text: "${text}"`);
+                        } else {
+                            document.getElementById('notesInput').value = result.notes;
+                            log(`⚠️ Raw notes: ${result.notes.substring(0, 50)}...`);
+                        }
+                    } catch (e) {
+                        document.getElementById('notesInput').value = result.notes;
+                        log(`⚠️ Notes are not JSON: ${result.notes.substring(0, 50)}...`);
+                    }
+                } else {
+                    document.getElementById('notesInput').value = '';
+                    log('📝 No notes found');
+                }
+                
+            } catch (error) {
+                log(`❌ Error loading notes: ${error.message}`);
+            }
+        }
+
+        function clearNotes() {
+            document.getElementById('notesInput').value = '';
+            log('🧹 Notes input cleared');
+        }
+
+        function switchDate() {
+            currentDate = '2024-11-05';
+            document.getElementById('currentDate').textContent = currentDate;
+            log(`🔄 Switched to date: ${currentDate}`);
+            loadNotes();
+        }
+
+        function switchBack() {
+            currentDate = originalDate;
+            document.getElementById('currentDate').textContent = currentDate;
+            log(`🔄 Switched back to date: ${currentDate}`);
+            loadNotes();
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            log('🚀 Simple Day Notes Test loaded');
+            loadNotes();
+        });
+    </script>
+</body>
+</html>

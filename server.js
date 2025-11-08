@@ -169,22 +169,35 @@ app.put('/api/problems/:id/progress', async (req, res) => {
         SELECT add_review_session($1, 'remembered', $2, NULL)
       `, [id, notes || 'Initial solve']);
 
-      // Auto-create solved problem event when problem is marked as solved
-      try {
-        const solveDate = solved_date ? solved_date.split('T')[0] : new Date().toISOString().split('T')[0];
-        const solvedProblemResult = await pool.query(`
-          SELECT create_solved_problem_event($1, $2, $3, $4)
-        `, [
-          id, 
-          solveDate,
-          null, // time_spent_minutes - can be added later if needed
-          notes || 'Problem solved successfully'
-        ]);
+      // Auto-create solved problem event ONLY when problem is solved for the first time ever
+      // Check if there are any existing solved problem events (including archived ones)
+      const existingEventsResult = await pool.query(`
+        SELECT COUNT(*) as event_count 
+        FROM calendar_events 
+        WHERE problem_id = $1 AND event_type = 'solved_problem'
+      `, [id]);
+      
+      const hasExistingEvents = existingEventsResult.rows[0].event_count > 0;
+      
+      if (!hasExistingEvents) {
+        try {
+          const solveDate = solved_date ? solved_date.split('T')[0] : new Date().toISOString().split('T')[0];
+          const solvedProblemResult = await pool.query(`
+            SELECT create_solved_problem_event($1, $2, $3, $4)
+          `, [
+            id, 
+            solveDate,
+            null, // time_spent_minutes - can be added later if needed
+            notes || 'Problem solved successfully'
+          ]);
 
-        console.log(`✅ Solved problem event created for problem ${id}: Event ID ${solvedProblemResult.rows[0].create_solved_problem_event}`);
-      } catch (solvedProblemError) {
-        // Log error but don't fail the main operation
-        console.error('⚠️  Failed to create solved problem event:', solvedProblemError.message);
+          console.log(`✅ Solved problem event created for problem ${id} (first time ever): Event ID ${solvedProblemResult.rows[0].create_solved_problem_event}`);
+        } catch (solvedProblemError) {
+          // Log error but don't fail the main operation
+          console.error('⚠️  Failed to create solved problem event:', solvedProblemError.message);
+        }
+      } else {
+        console.log(`ℹ️  Problem ${id} has been solved before - no new calendar event created`);
       }
 
       res.json(result.rows[0]);
@@ -211,22 +224,9 @@ app.put('/api/problems/:id/progress', async (req, res) => {
         DELETE FROM review_history WHERE problem_id = $1
       `, [id]);
 
-      // Archive solved problem events when problem is marked as unsolved
-      try {
-        const archiveResult = await pool.query(`
-          UPDATE calendar_events 
-          SET is_archived = true, updated_at = CURRENT_TIMESTAMP
-          WHERE problem_id = $1 AND event_type = 'solved_problem'
-          RETURNING id, title
-        `, [id]);
-
-        if (archiveResult.rows.length > 0) {
-          console.log(`📦 Archived ${archiveResult.rows.length} solved problem event(s) for problem ${id}`);
-        }
-      } catch (archiveError) {
-        // Log error but don't fail the main operation
-        console.error('⚠️  Failed to archive solved problem events:', archiveError.message);
-      }
+      // Keep solved problem events when problem is marked as unsolved
+      // This preserves the historical record of when the problem was first solved
+      console.log(`ℹ️  Problem ${id} marked as unsolved - keeping historical solve events`)
 
       res.json(result.rows[0]);
     }
@@ -966,7 +966,11 @@ app.post('/api/import-problems', async (req, res) => {
 app.get('/api/solved', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT * FROM problems WHERE solved = TRUE ORDER BY concept, title
+      SELECT *, 
+             updated_at as solved_date
+      FROM problems 
+      WHERE solved = TRUE 
+      ORDER BY updated_at DESC, concept, title
     `);
     res.json(result.rows);
   } catch (err) {
@@ -2653,7 +2657,9 @@ app.get('/api/calendar/events/filter', async (req, res) => {
 
 // Get practice session statistics
 // Practice session statistics endpoint removed
-// app.get('/api/calendar/practice-stats', async (req, res) => {
+/*
+// Practice session statistics endpoint removed
+app.get('/api/calendar/practice-stats', async (req, res) => {
   try {
     const { 
       start_date, 
@@ -2778,6 +2784,7 @@ app.get('/api/calendar/events/filter', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch practice statistics' });
   }
 });
+*/
 
 // Bulk operations for calendar events
 app.post('/api/calendar/events/bulk', async (req, res) => {

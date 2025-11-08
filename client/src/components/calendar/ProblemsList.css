@@ -14,154 +14,177 @@
   width: 100%;
 }
 
-/* Problem Item Styles */
-.problem-item {
-  padding: 16px 24px;
-  border-bottom: 1px solid #f1f5f9;
+/* Problem Item Styles - Match main solved problems design */
+.problems-list .problem-item-detail {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 16px;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
-  background: #ffffff;
-}
-
-.problem-item:hover {
-  background: #f8fafc;
-  border-left: 3px solid #3182ce;
-  padding-left: 21px; /* Adjust for border */
-}
-
-.problem-item:focus {
-  outline: 2px solid #3182ce;
-  outline-offset: -2px;
-  background: #f8fafc;
-}
-
-.problem-item:last-child {
-  border-bottom: none;
-}
-
-.problem-item:active {
-  background: #edf2f7;
-}
-
-/* Problem Header */
-.problem-header {
+  overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #374151;
 }
 
-.difficulty-badge {
-  padding: 4px 8px;
-  border-radius: 12px;
+.problems-list .problem-item-detail::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 0%, rgba(59, 130, 246, 0.05) 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.problems-list .problem-item-detail:hover {
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.problems-list .problem-item-detail:hover::before {
+  opacity: 1;
+}
+
+.problems-list .problem-item-detail:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
+
+/* Difficulty indicators - colored left border */
+.problems-list .problem-item-detail.easy::after {
+  content: "";
+  width: 3px;
+  height: 100%;
+  background-color: #10b981;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.problems-list .problem-item-detail.medium::after {
+  content: "";
+  width: 3px;
+  height: 100%;
+  background-color: #f59e0b;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.problems-list .problem-item-detail.hard::after {
+  content: "";
+  width: 3px;
+  height: 100%;
+  background-color: #ef4444;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* Problem title layout */
+.problems-list .problem-title-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 12px;
+}
+
+.problems-list .problem-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.problems-list .problem-title-detail {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.problems-list .problem-solve-time {
   font-size: 11px;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+/* Actions section */
+.problems-list .solved-problem-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Difficulty badge */
+.problems-list .difficulty-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 10px;
   font-weight: 600;
   color: white;
   text-transform: uppercase;
-  flex-shrink: 0;
-  min-width: 50px;
+  min-width: 45px;
   text-align: center;
 }
 
-.difficulty-badge.easy {
-  background: #38a169;
+.problems-list .difficulty-badge.difficulty-easy {
+  background: #10b981;
 }
 
-.difficulty-badge.medium {
-  background: #ed8936;
+.problems-list .difficulty-badge.difficulty-medium {
+  background: #f59e0b;
 }
 
-.difficulty-badge.hard {
-  background: #e53e3e;
+.problems-list .difficulty-badge.difficulty-hard {
+  background: #ef4444;
 }
 
-.problem-title {
-  font-weight: 600;
-  color: #2d3748;
-  font-size: 16px;
-  line-height: 1.4;
-  flex: 1;
-}
-
-/* Problem Details */
-.problem-details {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 8px;
-  font-size: 14px;
-}
-
-.problem-concept {
-  color: #718096;
-  background: #f1f5f9;
-  padding: 4px 8px;
+/* Concept badge */
+.problems-list .concept-badge {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  font-size: 11px;
+  padding: 3px 8px;
   border-radius: 12px;
-  font-size: 12px;
   font-weight: 500;
 }
 
-.problem-time {
-  color: #4a5568;
-  font-size: 12px;
+/* LeetCode link */
+.problems-list .leetcode-link {
+  text-decoration: none;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 11px;
   font-weight: 500;
-}
-
-/* Problem Metadata */
-.problem-metadata {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.problem-link,
-.solved-indicator {
+  color: #374151;
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
-  color: #718096;
 }
 
-.problem-link {
-  color: #3182ce;
-}
-
-.problem-link:hover {
-  color: #2c5aa0;
-}
-
-.link-icon,
-.solved-icon {
-  font-size: 12px;
-}
-
-.link-text,
-.solved-text {
-  font-weight: 500;
-}
-
-.solved-indicator {
-  color: #38a169;
-}
-
-/* Hover Indicator */
-.problem-hover-indicator {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  font-size: 12px;
-  color: #718096;
-  font-style: italic;
-}
-
-.problem-item:hover .problem-hover-indicator {
-  opacity: 1;
+.problems-list .leetcode-link:hover {
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+  color: #374151;
 }
 
 /* Empty State */
@@ -194,87 +217,89 @@
   font-style: italic;
 }
 
+/* Calendar-specific styling for solved problems */
+.problems-list .problem-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.problems-list .problem-solve-time {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 400;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
-  .problem-item {
-    padding: 12px 20px;
+  .problems-list .problem-item-detail {
+    padding: 10px 12px;
+    margin-bottom: 6px;
   }
   
-  .problem-item:hover {
-    padding-left: 17px; /* Adjust for smaller border */
-    border-left-width: 3px;
-  }
-  
-  .problem-header {
+  .problems-list .problem-title-flex {
     gap: 8px;
-    margin-bottom: 6px;
   }
   
-  .problem-title {
-    font-size: 15px;
+  .problems-list .problem-title-detail {
+    font-size: 12px;
   }
   
-  .problem-details {
-    gap: 12px;
-    margin-bottom: 6px;
-    flex-wrap: wrap;
+  .problems-list .solved-problem-actions {
+    gap: 6px;
   }
   
-  .problem-concept {
-    font-size: 11px;
+  .problems-list .difficulty-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    min-width: 40px;
+  }
+  
+  .problems-list .concept-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+  
+  .problems-list .leetcode-link {
+    font-size: 10px;
     padding: 3px 6px;
-  }
-  
-  .problem-time {
-    font-size: 11px;
-  }
-  
-  .problem-metadata {
-    gap: 8px;
-    margin-top: 6px;
-  }
-  
-  .problem-hover-indicator {
-    display: none; /* Hide on mobile */
   }
 }
 
 @media (max-width: 480px) {
-  .problem-item {
-    padding: 10px 16px;
+  .problems-list .problem-item-detail {
+    padding: 8px 10px;
   }
   
-  .problem-item:hover {
-    padding-left: 13px;
-  }
-  
-  .problem-header {
+  .problems-list .problem-title-flex {
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
   }
   
-  .difficulty-badge {
-    align-self: flex-start;
-    font-size: 10px;
-    padding: 3px 6px;
-    min-width: 45px;
-  }
-  
-  .problem-title {
-    font-size: 14px;
-    line-height: 1.3;
-  }
-  
-  .problem-details {
-    flex-direction: column;
-    align-items: flex-start;
+  .problems-list .solved-problem-actions {
+    align-self: stretch;
+    justify-content: flex-start;
+    flex-wrap: wrap;
     gap: 4px;
   }
   
-  .problem-metadata {
-    flex-wrap: wrap;
-    gap: 6px;
+  .problems-list .difficulty-badge {
+    font-size: 8px;
+    padding: 2px 5px;
+    min-width: 35px;
+  }
+  
+  .problems-list .concept-badge {
+    font-size: 9px;
+    padding: 2px 5px;
+  }
+  
+  .problems-list .leetcode-link {
+    font-size: 9px;
+    padding: 2px 5px;
   }
   
   .empty-state {
@@ -296,52 +321,49 @@
 }
 
 /* Focus and Accessibility */
-.problem-item:focus-visible {
-  outline: 2px solid #3182ce;
+.problems-list .problem-item-detail:focus-visible {
+  outline: 2px solid #3b82f6;
   outline-offset: 2px;
 }
 
 /* High contrast mode support */
 @media (prefers-contrast: high) {
-  .problem-item {
-    border-bottom: 2px solid #000;
+  .problems-list .problem-item-detail {
+    border: 2px solid #000;
   }
   
-  .problem-item:hover,
-  .problem-item:focus {
-    border-left: 4px solid #000;
+  .problems-list .problem-item-detail:hover,
+  .problems-list .problem-item-detail:focus {
     background: #f0f0f0;
+    border-color: #000;
   }
   
-  .difficulty-badge {
+  .problems-list .difficulty-badge {
     border: 1px solid #000;
   }
   
-  .problem-concept {
+  .problems-list .concept-badge {
     border: 1px solid #666;
   }
 }
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-  .problem-item,
-  .problem-hover-indicator {
+  .problems-list .problem-item-detail {
     transition: none;
   }
 }
 
 /* Print styles */
 @media print {
-  .problem-item {
-    border-bottom: 1px solid #000;
+  .problems-list .problem-item-detail {
+    border: 1px solid #000;
     break-inside: avoid;
+    box-shadow: none;
+    transform: none;
   }
   
-  .problem-hover-indicator {
-    display: none;
-  }
-  
-  .problem-metadata {
+  .problems-list .leetcode-link {
     display: none;
   }
 }

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Calendar Solved Problems UI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .calendar-preview {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            margin: 10px 0;
+            max-width: 600px;
+        }
+        .calendar-cell {
+            border: 1px solid #ddd;
+            padding: 8px;
+            min-height: 60px;
+            background: white;
+            position: relative;
+        }
+        .calendar-cell.has-problems {
+            background-color: #e8f5e8;
+            border-color: #28a745;
+        }
+        .calendar-cell .date {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .calendar-cell .problems {
+            font-size: 12px;
+            color: #28a745;
+        }
+        .calendar-header {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            margin-bottom: 5px;
+            max-width: 600px;
+        }
+        .calendar-header div {
+            text-align: center;
+            font-weight: bold;
+            padding: 5px;
+            background: #f8f9fa;
+        }
+        .legend {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .legend-item {
+            display: inline-block;
+            margin-right: 20px;
+        }
+        .legend-color {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+            vertical-align: middle;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>Calendar Solved Problems UI Test</h1>
+    <p>This test verifies that solved problems appear on the correct dates in the calendar interface.</p>
+
+    <div class="test-section info">
+        <h3>Test 1: Fetch Solved Problems Data</h3>
+        <p>This will fetch solved problems and show their solve dates.</p>
+        <button onclick="testSolvedProblemsData()">Fetch Solved Problems</button>
+        <div id="test1-result" class="result"></div>
+    </div>
+
+    <div class="test-section info">
+        <h3>Test 2: Calendar Date Distribution</h3>
+        <p>This will show how solved problems are distributed across calendar dates.</p>
+        <button onclick="testCalendarDistribution()">Show Calendar Distribution</button>
+        <div id="test2-result" class="result"></div>
+        <div id="calendar-preview"></div>
+    </div>
+
+    <div class="test-section info">
+        <h3>Test 3: Day Detail View Simulation</h3>
+        <p>This will simulate clicking on a calendar cell and show what problems appear.</p>
+        <button onclick="testDayDetailView()">Test Day Detail View</button>
+        <div id="test3-result" class="result"></div>
+    </div>
+
+    <div class="test-section info">
+        <h3>Test 4: Calendar Service Integration</h3>
+        <p>This will test the calendar service endpoints that the frontend uses.</p>
+        <button onclick="testCalendarServiceIntegration()">Test Calendar Service</button>
+        <div id="test4-result" class="result"></div>
+    </div>
+
+    <script>
+        async function testSolvedProblemsData() {
+            const resultDiv = document.getElementById('test1-result');
+            resultDiv.textContent = 'Fetching solved problems...';
+            
+            try {
+                const response = await fetch('/api/solved');
+                const problems = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+                
+                // Group problems by solve date
+                const problemsByDate = {};
+                problems.forEach(problem => {
+                    if (problem.solved_date) {
+                        const date = new Date(problem.solved_date).toDateString();
+                        if (!problemsByDate[date]) {
+                            problemsByDate[date] = [];
+                        }
+                        problemsByDate[date].push(problem);
+                    }
+                });
+                
+                const dates = Object.keys(problemsByDate).sort();
+                
+                let result = `✅ SUCCESS: Found ${problems.length} solved problems\n`;
+                result += `📅 Problems solved across ${dates.length} different dates:\n\n`;
+                
+                dates.forEach(date => {
+                    const count = problemsByDate[date].length;
+                    result += `${date}: ${count} problem${count !== 1 ? 's' : ''}\n`;
+                    problemsByDate[date].slice(0, 3).forEach(p => {
+                        result += `  • ${p.title} (${p.difficulty})\n`;
+                    });
+                    if (problemsByDate[date].length > 3) {
+                        result += `  • ... and ${problemsByDate[date].length - 3} more\n`;
+                    }
+                    result += '\n';
+                });
+                
+                resultDiv.textContent = result;
+                resultDiv.className = 'result success';
+                
+                // Store data for other tests
+                window.testData = { problems, problemsByDate };
+                
+            } catch (error) {
+                resultDiv.textContent = `❌ ERROR: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testCalendarDistribution() {
+            const resultDiv = document.getElementById('test2-result');
+            const calendarDiv = document.getElementById('calendar-preview');
+            
+            if (!window.testData) {
+                resultDiv.textContent = 'Please run Test 1 first to fetch data.';
+                resultDiv.className = 'result error';
+                return;
+            }
+            
+            try {
+                const { problemsByDate } = window.testData;
+                
+                // Create a mini calendar for the current month
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = today.getMonth();
+                
+                // Get first day of month and calculate calendar grid
+                const firstDay = new Date(year, month, 1);
+                const lastDay = new Date(year, month + 1, 0);
+                const startDate = new Date(firstDay);
+                startDate.setDate(startDate.getDate() - firstDay.getDay()); // Start from Sunday
+                
+                // Create calendar HTML
+                let calendarHTML = '<div class="legend">';
+                calendarHTML += '<div class="legend-item"><span class="legend-color" style="background: white;"></span>No problems</div>';
+                calendarHTML += '<div class="legend-item"><span class="legend-color" style="background: #e8f5e8;"></span>Has solved problems</div>';
+                calendarHTML += '</div>';
+                
+                calendarHTML += '<div class="calendar-header">';
+                ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(day => {
+                    calendarHTML += `<div>${day}</div>`;
+                });
+                calendarHTML += '</div>';
+                
+                calendarHTML += '<div class="calendar-preview">';
+                
+                const currentDate = new Date(startDate);
+                for (let i = 0; i < 42; i++) { // 6 weeks
+                    const dateStr = currentDate.toDateString();
+                    const isoDate = currentDate.toISOString().split('T')[0];
+                    const problemsOnDate = Object.keys(problemsByDate).filter(date => {
+                        const problemDate = new Date(Object.values(problemsByDate)[Object.keys(problemsByDate).indexOf(date)][0].solved_date);
+                        return problemDate.toISOString().split('T')[0] === isoDate;
+                    });
+                    
+                    const hasProblems = problemsOnDate.length > 0;
+                    const isCurrentMonth = currentDate.getMonth() === month;
+                    
+                    calendarHTML += `<div class="calendar-cell ${hasProblems ? 'has-problems' : ''}" style="opacity: ${isCurrentMonth ? 1 : 0.3}">`;
+                    calendarHTML += `<div class="date">${currentDate.getDate()}</div>`;
+                    if (hasProblems) {
+                        const count = problemsByDate[dateStr]?.length || 0;
+                        calendarHTML += `<div class="problems">${count} solved</div>`;
+                    }
+                    calendarHTML += '</div>';
+                    
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                
+                calendarHTML += '</div>';
+                calendarDiv.innerHTML = calendarHTML;
+                
+                resultDiv.textContent = `✅ Calendar preview generated for ${new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+                resultDiv.className = 'result success';
+                
+            } catch (error) {
+                resultDiv.textContent = `❌ ERROR: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testDayDetailView() {
+            const resultDiv = document.getElementById('test3-result');
+            resultDiv.textContent = 'Testing day detail view...';
+            
+            if (!window.testData) {
+                resultDiv.textContent = 'Please run Test 1 first to fetch data.';
+                resultDiv.className = 'result error';
+                return;
+            }
+            
+            try {
+                const { problemsByDate } = window.testData;
+                const dates = Object.keys(problemsByDate);
+                
+                if (dates.length === 0) {
+                    resultDiv.textContent = 'No dates with solved problems found.';
+                    resultDiv.className = 'result error';
+                    return;
+                }
+                
+                // Test the first date with problems
+                const testDate = dates[0];
+                const testDateISO = new Date(problemsByDate[testDate][0].solved_date).toISOString().split('T')[0];
+                
+                // Fetch day details (what DayDetailView would do)
+                const dayResponse = await fetch(`/api/calendar/day/${testDateISO}`);
+                const dayEvents = await dayResponse.json();
+                
+                // Also test the calendar service approach
+                const calendarResponse = await fetch(`/api/calendar/events?start_date=${testDateISO}&end_date=${testDateISO}`);
+                const calendarEvents = await calendarResponse.json();
+                
+                let result = `✅ SUCCESS: Day detail view simulation for ${testDate}\n\n`;
+                result += `📅 Date: ${testDateISO}\n`;
+                result += `🎯 Expected solved problems: ${problemsByDate[testDate].length}\n`;
+                result += `📊 Day events returned: ${dayEvents.length}\n`;
+                result += `📋 Calendar events returned: ${calendarEvents.length}\n\n`;
+                
+                result += `Expected problems on this date:\n`;
+                problemsByDate[testDate].forEach(p => {
+                    result += `  • ${p.title} (${p.difficulty})\n`;
+                });
+                
+                result += `\nDay events:\n`;
+                dayEvents.forEach(event => {
+                    result += `  • ${event.title} (${event.event_type})\n`;
+                });
+                
+                // Test that the calendar service would filter correctly
+                const allSolved = window.testData.problems;
+                const filteredProblems = allSolved.filter(problem => {
+                    if (!problem.solved_date) return false;
+                    const solvedDate = new Date(problem.solved_date).toISOString().split('T')[0];
+                    return solvedDate === testDateISO;
+                });
+                
+                result += `\nCalendar service filtering:\n`;
+                result += `  • Filtered problems: ${filteredProblems.length}\n`;
+                filteredProblems.forEach(p => {
+                    result += `    - ${p.title}\n`;
+                });
+                
+                resultDiv.textContent = result;
+                resultDiv.className = 'result success';
+                
+            } catch (error) {
+                resultDiv.textContent = `❌ ERROR: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testCalendarServiceIntegration() {
+            const resultDiv = document.getElementById('test4-result');
+            resultDiv.textContent = 'Testing calendar service integration...';
+            
+            try {
+                // Test the calendar data endpoint for a date range
+                const today = new Date();
+                const startDate = new Date(today);
+                startDate.setDate(startDate.getDate() - 7); // 7 days ago
+                const endDate = new Date(today);
+                endDate.setDate(endDate.getDate() + 7); // 7 days from now
+                
+                const start = startDate.toISOString().split('T')[0];
+                const end = endDate.toISOString().split('T')[0];
+                
+                // Test calendar events endpoint
+                const eventsResponse = await fetch(`/api/calendar/events?start_date=${start}&end_date=${end}`);
+                const events = await eventsResponse.json();
+                
+                // Test solved problems endpoint
+                const solvedResponse = await fetch('/api/solved');
+                const allSolved = await solvedResponse.json();
+                
+                // Filter solved problems for the date range (simulate calendar service)
+                const solvedInRange = allSolved.filter(problem => {
+                    if (!problem.solved_date) return false;
+                    const solvedDate = new Date(problem.solved_date).toISOString().split('T')[0];
+                    return solvedDate >= start && solvedDate <= end;
+                });
+                
+                let result = `✅ SUCCESS: Calendar service integration test\n\n`;
+                result += `📅 Date range: ${start} to ${end}\n`;
+                result += `📊 Total events in range: ${events.length}\n`;
+                result += `🎯 Total solved problems: ${allSolved.length}\n`;
+                result += `📋 Solved problems in range: ${solvedInRange.length}\n\n`;
+                
+                // Group events by type
+                const eventsByType = {};
+                events.forEach(event => {
+                    if (!eventsByType[event.event_type]) {
+                        eventsByType[event.event_type] = 0;
+                    }
+                    eventsByType[event.event_type]++;
+                });
+                
+                result += `Events by type:\n`;
+                Object.entries(eventsByType).forEach(([type, count]) => {
+                    result += `  • ${type}: ${count}\n`;
+                });
+                
+                result += `\nSolved problems in date range:\n`;
+                solvedInRange.forEach(p => {
+                    const date = new Date(p.solved_date).toDateString();
+                    result += `  • ${p.title} (${date})\n`;
+                });
+                
+                // Test specific day
+                const todayISO = today.toISOString().split('T')[0];
+                const todayResponse = await fetch(`/api/calendar/day/${todayISO}`);
+                const todayEvents = await todayResponse.json();
+                
+                result += `\nToday (${todayISO}):\n`;
+                result += `  • Events: ${todayEvents.length}\n`;
+                
+                const todaySolved = allSolved.filter(p => {
+                    if (!p.solved_date) return false;
+                    return new Date(p.solved_date).toISOString().split('T')[0] === todayISO;
+                });
+                
+                result += `  • Solved problems: ${todaySolved.length}\n`;
+                
+                resultDiv.textContent = result;
+                resultDiv.className = 'result success';
+                
+            } catch (error) {
+                resultDiv.textContent = `❌ ERROR: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+    </script>
+</body>
+</html>

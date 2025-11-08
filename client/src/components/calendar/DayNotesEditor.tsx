@@ -31,7 +31,7 @@ import {
   Quote
 } from 'lucide-react';
 import { calendarService } from '../../services/calendarService';
-import { formatDateForDisplay } from '../../utils/dateUtils';
+import { formatDateForDisplay, formatDateToISO } from '../../utils/dateUtils';
 import { BackwardCompatibilityConverter } from '../../utils/BackwardCompatibilityConverter';
 import AskAI from '../AskAI';
 import '../../styles/novel-editor.css';
@@ -74,9 +74,24 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
     };
   }, []);
 
-  // Reset unmounted flag when date changes
+  // Reset unmounted flag and cancel pending saves when date changes
   useEffect(() => {
     isUnmountedRef.current = false;
+    
+    // Cancel any pending debounced saves when date changes
+    if (debouncedSaveRef.current) {
+      clearTimeout(debouncedSaveRef.current);
+      debouncedSaveRef.current = null;
+      console.log('Cancelled pending save due to date change');
+    }
+    
+    // Cancel any pending slash command timeouts
+    if (slashCommandTimeoutRef.current) {
+      clearTimeout(slashCommandTimeoutRef.current);
+      slashCommandTimeoutRef.current = null;
+    }
+    
+    isTypingSlashCommandRef.current = false;
   }, [selectedDate]);
 
   // Load content when date changes
@@ -88,23 +103,40 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
       setError(null);
 
       try {
-        console.log(`Loading day notes for: ${formatDateForDisplay(selectedDate)}`);
+        const dateStr = formatDateToISO(selectedDate);
+        console.log(`🔄 Loading day notes for: ${formatDateForDisplay(selectedDate)} (${dateStr})`);
         
         // Load day notes from calendar service
         const dayNotes = await calendarService.getDayNotes(selectedDate);
+        
+        console.log(`📥 Received day notes for ${dateStr}:`, {
+          hasContent: !!dayNotes,
+          length: dayNotes?.length || 0,
+          preview: dayNotes ? dayNotes.substring(0, 100) : 'empty'
+        });
 
         // Convert to Novel format
         const novelContent = BackwardCompatibilityConverter.convertToNovelFormat(dayNotes || '');
 
         if (!isUnmountedRef.current) {
-          console.log('Setting day notes content:', novelContent);
+          console.log(`📝 Setting day notes content for ${dateStr}:`, {
+            type: novelContent.type,
+            contentLength: novelContent.content?.length || 0,
+            firstBlock: novelContent.content?.[0]?.type || 'none'
+          });
           setContent(novelContent);
+          
+          // Force editor to update by resetting it
+          if (editorRef.current) {
+            console.log(`🔄 Updating editor content for ${dateStr}`);
+            editorRef.current.commands.setContent(novelContent);
+          }
         }
 
       } catch (error) {
         if (isUnmountedRef.current) return;
 
-        console.error('Failed to load day notes content', error);
+        console.error('❌ Failed to load day notes content', error);
         
         const fallbackContent: JSONContent = {
           type: 'doc',
@@ -125,8 +157,9 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
   }, [selectedDate]);
 
   // Save notes function - silent save without loading indicators
-  const saveNotes = useCallback(async (content: JSONContent) => {
-    console.log('Save day notes called');
+  const saveNotes = useCallback(async (content: JSONContent, dateToSave: Date) => {
+    const dateStr = formatDateToISO(dateToSave);
+    console.log(`💾 Save day notes called for date: ${formatDateForDisplay(dateToSave)} (${dateStr})`);
 
     setError(null);
 
@@ -136,9 +169,14 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
       }
 
       const contentString = JSON.stringify(content);
-      await calendarService.saveDayNotes(selectedDate, contentString);
+      console.log(`💾 Saving content for ${dateStr}:`, {
+        contentLength: contentString.length,
+        preview: contentString.substring(0, 100)
+      });
+      
+      await calendarService.saveDayNotes(dateToSave, contentString);
 
-      console.log('Day notes saved successfully');
+      console.log(`✅ Day notes saved successfully for: ${formatDateForDisplay(dateToSave)} (${dateStr})`);
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save day notes';
@@ -149,29 +187,34 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
         setError(null);
       }, 3000);
 
-      console.error('Save failed', error);
+      console.error(`❌ Save failed for ${dateStr}:`, error);
     }
+  }, []);
+
+  // Debounced save function with date tracking
+  const debouncedSaveRef = useRef<NodeJS.Timeout | null>(null);
+  const currentDateRef = useRef<Date>(selectedDate);
+  
+  // Update current date ref when selectedDate changes
+  useEffect(() => {
+    currentDateRef.current = selectedDate;
   }, [selectedDate]);
+  
+  const debouncedSave = useCallback((content: JSONContent, dateForSave: Date) => {
+    if (isUnmountedRef.current) return;
 
-  // Debounced save function
-  const debouncedSave = useCallback(
-    (() => {
-      let timeoutId: NodeJS.Timeout;
+    // Clear any pending save
+    if (debouncedSaveRef.current) {
+      clearTimeout(debouncedSaveRef.current);
+    }
 
-      return (content: JSONContent) => {
-        if (isUnmountedRef.current) return;
-
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-          if (!isUnmountedRef.current) {
-            console.log(`Auto-save triggered after ${autoSaveDelay}ms delay`);
-            saveNotes(content);
-          }
-        }, autoSaveDelay);
-      };
-    })(),
-    [autoSaveDelay, saveNotes]
-  );
+    debouncedSaveRef.current = setTimeout(() => {
+      if (!isUnmountedRef.current) {
+        console.log(`Auto-save triggered after ${autoSaveDelay}ms delay`);
+        saveNotes(content, dateForSave);
+      }
+    }, autoSaveDelay);
+  }, [autoSaveDelay, saveNotes]);
 
   // Enhanced content change handler with slash command detection (from NovelNotesTab)
   const lastContentRef = useRef<JSONContent | null>(null);
@@ -181,14 +224,24 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
   const handleContentChange = useCallback((content: JSONContent) => {
     setContent(content);
 
+    // Capture the current date at the time of content change
+    const dateForThisContent = currentDateRef.current;
+    const dateStr = formatDateToISO(dateForThisContent);
+
     // Store current content for comparison
     const currentContentStr = JSON.stringify(content);
     const lastContentStr = lastContentRef.current ? JSON.stringify(lastContentRef.current) : '';
 
     // Only proceed if content actually changed
     if (currentContentStr === lastContentStr) {
+      console.log(`⏭️ Content unchanged for ${dateStr}, skipping save`);
       return;
     }
+
+    console.log(`✏️ Content changed for ${dateStr}:`, {
+      contentLength: currentContentStr.length,
+      preview: currentContentStr.substring(0, 100)
+    });
 
     lastContentRef.current = content;
 
@@ -223,12 +276,12 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
         // Only save if not unmounted and content hasn't changed again
         if (!isUnmountedRef.current) {
           console.log('Delayed save after slash command interaction');
-          debouncedSave(content);
+          debouncedSave(content, dateForThisContent);
         }
       }, 1000); // 1 second delay for slash commands
     } else if (!isTypingSlashCommandRef.current) {
       // Normal content change, save with regular debounce
-      debouncedSave(content);
+      debouncedSave(content, dateForThisContent);
     }
     // If still typing slash command, don't save yet
   }, [debouncedSave]);
@@ -582,7 +635,7 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
           <button
             onClick={() => {
               if (content) {
-                saveNotes(content);
+                saveNotes(content, selectedDate);
               }
             }}
             className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"

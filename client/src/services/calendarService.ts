@@ -86,7 +86,7 @@ export class CalendarService {
         const allProblemsResponse = await apiRequest<Problem[]>('/api/solved');
         const problems = (allProblemsResponse || []).filter(problem => {
           if (!problem.solved_date) return false;
-          const solvedDate = problem.solved_date.split('T')[0]; // Get just the date part
+          const solvedDate = new Date(problem.solved_date).toISOString().split('T')[0]; // Get just the date part
           return solvedDate >= start && solvedDate <= end;
         });
 
@@ -135,7 +135,7 @@ export class CalendarService {
         const allProblemsResponse = await apiRequest<Problem[]>('/api/solved');
         const problems = (allProblemsResponse || []).filter(problem => {
           if (!problem.solved_date) return false;
-          const solvedDate = problem.solved_date.split('T')[0]; // Get just the date part
+          const solvedDate = new Date(problem.solved_date).toISOString().split('T')[0]; // Get just the date part
           return solvedDate === dateStr;
         });
 

@@ -34,9 +34,9 @@ const ProblemsList: React.FC<ProblemsListProps> = ({
   return (
     <div className={`problems-list ${className}`}>
       {sortedProblems.map((problem) => (
-        <div 
+        <div
           key={problem.id}
-          className="problem-item"
+          className={`problem-item-detail solved-problem-item ${problem.difficulty.toLowerCase()}`}
           onClick={() => onProblemClick(problem)}
           role="button"
           tabIndex={0}
@@ -47,45 +47,35 @@ const ProblemsList: React.FC<ProblemsListProps> = ({
             }
           }}
         >
-          <div className="problem-header">
-            <div className={`difficulty-badge ${problem.difficulty.toLowerCase()}`}>
-              {problem.difficulty}
+          <div className="problem-title-flex">
+            <div className="problem-title-group">
+              <span className="text-gray-800 font-medium problem-title-detail">{problem.title}</span>
+              {problem.solved_date && (
+                <div className="problem-solve-time">
+                  Solved: {new Date(problem.solved_date).toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </div>
+              )}
             </div>
-            <div className="problem-title">{problem.title}</div>
-          </div>
-          
-          <div className="problem-details">
-            <div className="problem-concept">{problem.concept}</div>
-            {problem.solved_date && (
-              <div className="problem-time">
-                Solved: {new Date(problem.solved_date).toLocaleTimeString([], { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Additional problem metadata */}
-          <div className="problem-metadata">
-            {problem.url && (
-              <div className="problem-link">
-                <span className="link-icon">🔗</span>
-                <span className="link-text">LeetCode</span>
-              </div>
-            )}
-            
-            {problem.solved && (
-              <div className="solved-indicator">
-                <span className="solved-icon">✅</span>
-                <span className="solved-text">Solved</span>
-              </div>
-            )}
-          </div>
-
-          {/* Hover indicator */}
-          <div className="problem-hover-indicator">
-            <span>Click to view details →</span>
+            <div className="solved-problem-actions">
+              <span className={`difficulty-badge difficulty-${problem.difficulty.toLowerCase()}`}>
+                {problem.difficulty}
+              </span>
+              <span className="concept-badge">{problem.concept}</span>
+              {problem.url && (
+                <a 
+                  href={problem.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="leetcode-link"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  🔗 LeetCode
+                </a>
+              )}
+            </div>
           </div>
         </div>
       ))}

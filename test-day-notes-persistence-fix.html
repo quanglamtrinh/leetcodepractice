@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Day Notes Persistence Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        .test-section {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { border-left: 4px solid #28a745; }
+        .error { border-left: 4px solid #dc3545; }
+        .warning { border-left: 4px solid #ffc107; }
+        .info { border-left: 4px solid #17a2b8; }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.pass { background-color: #d4edda; color: #155724; }
+        .status.fail { background-color: #f8d7da; color: #721c24; }
+        .status.pending { background-color: #fff3cd; color: #856404; }
+        
+        .current-date {
+            font-size: 18px;
+            font-weight: bold;
+            color: #007bff;
+            margin: 10px 0;
+        }
+        
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .test-result.pass {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .test-result.fail {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Day Notes Persistence Fix Test</h1>
+    <p>This test verifies that the day notes persistence issue has been fixed.</p>
+
+    <div class="test-section info">
+        <h3>Test Scenario</h3>
+        <p>The bug: When you edit notes for a date, then switch to another date, the notes don't persist. When you reload, they disappear.</p>
+        <p><strong>Expected behavior after fix:</strong> Notes should save correctly and persist across date changes and page reloads.</p>
+    </div>
+
+    <div class="test-section">
+        <h3>Current Date: <span id="currentDate" class="current-date">2024-11-04</span></h3>
+        <textarea id="notesInput" placeholder="Type your notes here..."></textarea>
+        
+        <div class="test-controls">
+            <button onclick="runFullTest()">🚀 Run Full Test</button>
+            <button onclick="manualSave()">💾 Manual Save</button>
+            <button onclick="loadNotes()">📖 Load Notes</button>
+            <button onclick="switchToDate2()">➡️ Switch to Nov 5</button>
+            <button onclick="switchToDate1()">⬅️ Switch to Nov 4</button>
+            <button onclick="clearLog()">🧹 Clear Log</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Results</h3>
+        <div id="testResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Detailed Log</h3>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        const serverUrl = 'http://localhost:3001';
+        let currentDate = '2024-11-04';
+        const date1 = '2024-11-04';
+        const date2 = '2024-11-05';
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+            logDiv.textContent += `[${timestamp}] ${icon} ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+            document.getElementById('testResults').innerHTML = '';
+        }
+
+        function addTestResult(testName, passed, message) {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${passed ? 'pass' : 'fail'}`;
+            resultDiv.innerHTML = `
+                <strong>${passed ? '✅' : '❌'} ${testName}</strong><br>
+                ${message}
+            `;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        async function saveNotes(date, notes) {
+            try {
+                const notesJson = JSON.stringify({
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'paragraph',
+                            content: [
+                                { type: 'text', text: notes }
+                            ]
+                        }
+                    ]
+                });
+
+                const response = await fetch(`${serverUrl}/api/calendar/day-notes/${date}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ notes: notesJson })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                log(`Saved notes for ${date}`, 'success');
+                return true;
+            } catch (error) {
+                log(`Error saving notes for ${date}: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function loadNotes(date = currentDate) {
+            try {
+                const response = await fetch(`${serverUrl}/api/calendar/day-notes/${date}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.notes) {
+                    try {
+                        const parsed = JSON.parse(result.notes);
+                        if (parsed.content && parsed.content[0] && parsed.content[0].content) {
+                            const text = parsed.content[0].content[0]?.text || '';
+                            document.getElementById('notesInput').value = text;
+                            log(`Loaded notes for ${date}: "${text}"`, 'success');
+                            return text;
+                        }
+                    } catch (e) {
+                        log(`Notes are not in expected format for ${date}`, 'warning');
+                    }
+                }
+                
+                document.getElementById('notesInput').value = '';
+                log(`No notes found for ${date}`, 'info');
+                return '';
+            } catch (error) {
+                log(`Error loading notes for ${date}: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        async function manualSave() {
+            const notes = document.getElementById('notesInput').value;
+            if (!notes.trim()) {
+                log('No notes to save', 'warning');
+                return;
+            }
+            await saveNotes(currentDate, notes);
+        }
+
+        function switchToDate2() {
+            currentDate = date2;
+            document.getElementById('currentDate').textContent = currentDate;
+            log(`Switched to ${currentDate}`, 'info');
+            loadNotes(currentDate);
+        }
+
+        function switchToDate1() {
+            currentDate = date1;
+            document.getElementById('currentDate').textContent = currentDate;
+            log(`Switched to ${currentDate}`, 'info');
+            loadNotes(currentDate);
+        }
+
+        async function runFullTest() {
+            clearLog();
+            log('🚀 Starting full persistence test...', 'info');
+            log('', 'info');
+            
+            // Test 1: Clear both dates
+            log('Test 1: Clearing test data...', 'info');
+            await fetch(`${serverUrl}/api/calendar/day-notes/${date1}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notes: '' })
+            });
+            await fetch(`${serverUrl}/api/calendar/day-notes/${date2}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notes: '' })
+            });
+            log('✅ Test data cleared', 'success');
+            log('', 'info');
+            
+            // Test 2: Save notes for date1
+            log('Test 2: Saving notes for Nov 4...', 'info');
+            currentDate = date1;
+            document.getElementById('currentDate').textContent = currentDate;
+            const testNotes1 = 'These are my notes for November 4th';
+            document.getElementById('notesInput').value = testNotes1;
+            const saved1 = await saveNotes(date1, testNotes1);
+            
+            if (saved1) {
+                addTestResult('Save Notes for Nov 4', true, 'Notes saved successfully');
+            } else {
+                addTestResult('Save Notes for Nov 4', false, 'Failed to save notes');
+                return;
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            log('', 'info');
+            
+            // Test 3: Switch to date2 (should be empty)
+            log('Test 3: Switching to Nov 5 (should be empty)...', 'info');
+            currentDate = date2;
+            document.getElementById('currentDate').textContent = currentDate;
+            const notes2 = await loadNotes(date2);
+            
+            if (notes2 === '') {
+                addTestResult('Switch to Nov 5', true, 'Nov 5 is empty as expected');
+            } else {
+                addTestResult('Switch to Nov 5', false, `Nov 5 should be empty but has: "${notes2}"`);
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            log('', 'info');
+            
+            // Test 4: Switch back to date1 (should have our notes)
+            log('Test 4: Switching back to Nov 4 (should have our notes)...', 'info');
+            currentDate = date1;
+            document.getElementById('currentDate').textContent = currentDate;
+            const notesAfterSwitch = await loadNotes(date1);
+            
+            if (notesAfterSwitch === testNotes1) {
+                addTestResult('Switch Back to Nov 4', true, 'Notes persisted correctly!');
+                log('✅ SUCCESS: Notes persisted through date switch!', 'success');
+            } else {
+                addTestResult('Switch Back to Nov 4', false, `Expected "${testNotes1}" but got "${notesAfterSwitch}"`);
+                log('❌ FAIL: Notes were lost during date switch!', 'error');
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            log('', 'info');
+            
+            // Test 5: Simulate rapid edits and date switch
+            log('Test 5: Testing rapid edits with date switch...', 'info');
+            const rapidNotes = 'Rapid edit test';
+            document.getElementById('notesInput').value = rapidNotes;
+            
+            // Save and immediately switch (simulating the bug scenario)
+            const savePromise = saveNotes(date1, rapidNotes);
+            
+            // Switch to date2 immediately (before save completes)
+            setTimeout(() => {
+                currentDate = date2;
+                document.getElementById('currentDate').textContent = currentDate;
+                log('Switched to Nov 5 during save operation', 'info');
+            }, 50);
+            
+            await savePromise;
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Switch back and check
+            currentDate = date1;
+            document.getElementById('currentDate').textContent = currentDate;
+            const notesAfterRapid = await loadNotes(date1);
+            
+            if (notesAfterRapid === rapidNotes) {
+                addTestResult('Rapid Edit Test', true, 'Notes saved correctly even with rapid date switch');
+                log('✅ SUCCESS: Rapid edit test passed!', 'success');
+            } else {
+                addTestResult('Rapid Edit Test', false, `Expected "${rapidNotes}" but got "${notesAfterRapid}"`);
+                log('❌ FAIL: Rapid edit test failed!', 'error');
+            }
+            
+            log('', 'info');
+            log('🏁 Test complete!', 'info');
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            log('Day Notes Persistence Fix Test loaded', 'info');
+            log('Click "Run Full Test" to start the automated test', 'info');
+            loadNotes(currentDate);
+        });
+    </script>
+</body>
+</html>
