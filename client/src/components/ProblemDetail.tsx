@@ -16,7 +16,7 @@ const ProblemDetail: React.FC<ProblemDetailProps> = ({ problem, onNotesSaved, on
   const [activeTab, setActiveTab] = useState<'notes' | 'solution' | 'review' | 'similar'>('notes');
 
   return (
-    <div className="notes-panel">
+    <div className="notes-panel-container">
       <div className="notes-tabs">
         <button
           className={`tab-btn${activeTab === 'notes' ? ' active' : ''}`}

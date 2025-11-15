@@ -998,6 +998,30 @@ reen Day Detail View Styles (like ProblemDetailView) */
   min-height: 500px;
 }
 
+.day-notes-editor-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: #ffffff;
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.day-notes-editor-fullscreen .notes-header,
+.day-notes-editor-fullscreen .day-notes-editor-container {
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+html.day-notes-fullscreen-active,
+body.day-notes-fullscreen-active {
+  overflow: hidden;
+  height: 100%;
+}
+
 /* Activity Sections in Left Panel */
 .activity-section {
   margin-bottom: 24px;

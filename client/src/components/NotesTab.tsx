@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Code, Type, Hash, List, Quote, Minus } from 'lucide-react';
+import { Code, Type, Hash, List, Quote, Minus, ZoomIn, ZoomOut, RefreshCcw } from 'lucide-react';
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-python';
@@ -22,6 +22,17 @@ const blockTypes = [
   { type: 'divider', icon: Minus, label: 'Divider', placeholder: '' }
 ];
 
+const MIN_ZOOM = 0.75;
+const MAX_ZOOM = 1.5;
+const ZOOM_STEP = 0.1;
+const BLOCK_BASE_METRICS: Record<string, { fontSize: number; lineHeight: number; minHeight: number }> = {
+  text: { fontSize: 16, lineHeight: 24, minHeight: 24 },
+  heading: { fontSize: 24, lineHeight: 32, minHeight: 30 },
+  bullet: { fontSize: 16, lineHeight: 24, minHeight: 24 },
+  'sub-bullet': { fontSize: 16, lineHeight: 24, minHeight: 24 },
+  quote: { fontSize: 16, lineHeight: 24, minHeight: 24 }
+};
+
 type Block = {
   id: number;
   type: string;
@@ -39,6 +50,19 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
   const [, setStatus] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const zoomPercentage = Math.round(zoomLevel * 100);
+  const adjustZoom = useCallback((delta: number) => {
+    setZoomLevel(prev => {
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, parseFloat((prev + delta).toFixed(2))));
+      return next;
+    });
+  }, []);
+  const handleZoomIn = useCallback(() => adjustZoom(ZOOM_STEP), [adjustZoom]);
+  const handleZoomOut = useCallback(() => adjustZoom(-ZOOM_STEP), [adjustZoom]);
+  const handleResetZoom = useCallback(() => setZoomLevel(1), []);
+  const canZoomIn = zoomLevel < MAX_ZOOM - 0.001;
+  const canZoomOut = zoomLevel > MIN_ZOOM + 0.001;
   const textareaRefs = useRef<{ [key: number]: HTMLTextAreaElement | null }>({});
   const codeBlockRefs = useRef<{ [key: number]: any }>({});
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -909,21 +933,21 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
 
   // Auto-resize textareas when blocks change
   useEffect(() => {
-    Object.values(textareaRefs.current).forEach(textarea => {
+    Object.entries(textareaRefs.current).forEach(([id, textarea]) => {
       if (textarea) {
         textarea.style.height = 'auto';
-        // Find the block type to determine min height
-        const blockId = Object.keys(textareaRefs.current).find(id => 
-          textareaRefs.current[parseInt(id)] === textarea
-        );
-        const block = blocks.find(b => b.id === parseInt(blockId || '0'));
-        const minHeight = block?.type === 'heading' ? 30 : 24;
+        const block = blocks.find(b => b.id === Number(id));
+        const minHeight = (block?.type === 'heading' ? 30 : 24) * zoomLevel;
         textarea.style.height = `${Math.max(textarea.scrollHeight, minHeight)}px`;
       }
     });
-  }, [blocks]);
+  }, [blocks, zoomLevel]);
 
   const renderCodeBlock = (block: Block) => {
+    const codeFontSize = 14 * zoomLevel;
+    const codePadding = 22 * zoomLevel;
+    const codeMinHeight = 24 * zoomLevel;
+    const codeLineHeight = Math.max(20, 22 * zoomLevel);
     return (
       <div key={block.id} className="relative group mb-2">
         <div className="flex items-start">
@@ -940,14 +964,15 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
                 });
                 return highlighted;
               }}
-              padding={22}
+              padding={codePadding}
               style={{
                 fontFamily: '"Fira code", "Fira Mono", monospace',
-                fontSize: 14,
+                fontSize: codeFontSize,
+                lineHeight: `${codeLineHeight}px`,
                 backgroundColor: 'rgb(247, 246, 243)',
                 color: '#32302C',
                 borderRadius: '0.375rem',
-                minHeight: '1.5rem',
+                minHeight: `${codeMinHeight}px`,
                 height: 'auto',
                 resize: 'none',
                 outline: 'none',
@@ -994,11 +1019,11 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
   };
 
   const renderBlock = (block: Block) => {
-    const blockType = blockTypes.find(t => t.type === block.type);
     if (block.type === 'code') {
       return renderCodeBlock(block);
     }
     if (block.type === 'divider') {
+      const dividerThickness = Math.max(2, 2 * zoomLevel);
       return (
         <div
           key={block.id}
@@ -1007,24 +1032,24 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
           onFocus={() => setActiveBlock(block.id)}
           onKeyDown={e => handleDividerKeyDown(e, block.id)}
         >
-          <div className="flex-1 h-2 border-t-2 border-gray-800"></div>
+          <div
+            className="flex-1 border-t-2 border-gray-800"
+            style={{ borderTopWidth: dividerThickness }}
+          ></div>
         </div>
       );
     }
     const baseClasses = "w-full resize-none border-none outline-none bg-transparent";
-    const getBulletClasses = (block: Block) => {
-      return "text-gray-800 text-base leading-6";
-    };
-
-    const getBulletStyle = (block: Block) => {
-      if (block.type === 'bullet') {
-        const level = block.level || 0;
-        const paddingLeft = 24 + (level * 24); // 24px base + 24px per level
-        console.log('🔧 Bullet style for block:', block.id, 'level:', level, 'paddingLeft:', paddingLeft);
-        return { paddingLeft: `${paddingLeft}px` };
-      }
-      return {};
-    };
+    const blockMetrics = BLOCK_BASE_METRICS[block.type] || BLOCK_BASE_METRICS.text;
+    const fontSize = blockMetrics.fontSize * zoomLevel;
+    const lineHeight = blockMetrics.lineHeight * zoomLevel;
+    const minHeight = blockMetrics.minHeight * zoomLevel;
+    const bulletLevel = block.level || 0;
+    const isBulletType = block.type === 'bullet' || block.type === 'sub-bullet';
+    const bulletPadding = (24 + bulletLevel * 24) * zoomLevel;
+    const bulletDotLeft = (8 + bulletLevel * 24) * zoomLevel;
+    const bulletDotSize = 6 * zoomLevel;
+    const bulletDotTop = 2 * zoomLevel;
 
     const typeClasses: { [key: string]: string } = {
       text: "text-gray-800 text-base leading-6",
@@ -1037,10 +1062,15 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
     return (
       <div key={block.id} className="relative group mb-2" onClick={() => setActiveBlock(block.id)}>
         <div className="flex items-start">
-          {block.type === 'bullet' && (
+          {isBulletType && (
             <span 
-              className="absolute top-2 w-1.5 h-1.5 bg-gray-800 rounded-full"
-              style={{ left: `${8 + ((block.level || 0) * 24)}px` }}
+              className="absolute bg-gray-800 rounded-full"
+              style={{
+                left: `${bulletDotLeft}px`,
+                top: `${bulletDotTop}px`,
+                width: `${bulletDotSize}px`,
+                height: `${bulletDotSize}px`
+              }}
               title={`Level ${block.level || 0}`}
             ></span>
           )}
@@ -1051,31 +1081,28 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange(block.id, e.target.value)}
               onFocus={() => setActiveBlock(block.id)}
               placeholder={block.placeholder}
-              className={`${baseClasses} ${block.type === 'bullet' ? getBulletClasses(block) : typeClasses[block.type]} placeholder-gray-400`}
+              className={`${baseClasses} ${typeClasses[block.type] || typeClasses.text} placeholder-gray-400`}
               data-block-id={block.id}
               rows={1}
               style={{
-                minHeight: block.type === 'heading' ? '30px' : '24px',
+                minHeight: `${minHeight}px`,
                 height: 'auto',
                 resize: 'none',
                 overflow: 'hidden',
-                ...getBulletStyle(block)
+                fontSize: `${fontSize}px`,
+                lineHeight: `${lineHeight}px`,
+                ...(isBulletType ? { paddingLeft: `${bulletPadding}px` } : {})
               }}
               onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
                 const target = e.target as HTMLTextAreaElement;
-                // Reset height to auto to get the correct scrollHeight
                 target.style.height = 'auto';
-                // Set height to scrollHeight to fit content, with a minimum height
-                const minHeight = block.type === 'heading' ? 30 : 24;
                 target.style.height = `${Math.max(target.scrollHeight, minHeight)}px`;
               }}
               onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
                 handleKeyDown(e, block.id);
-                // Also handle auto-resize on key events
                 const target = e.target as HTMLTextAreaElement;
                 setTimeout(() => {
                   target.style.height = 'auto';
-                  const minHeight = block.type === 'heading' ? 30 : 24;
                   target.style.height = `${Math.max(target.scrollHeight, minHeight)}px`;
                 }, 0);
               }}
@@ -1222,6 +1249,21 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
       onKeyDown={(e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+' || e.key === 'Add')) {
+          e.preventDefault();
+          handleZoomIn();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === '-' || e.key === '_' || e.key === 'Subtract')) {
+          e.preventDefault();
+          handleZoomOut();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+          e.preventDefault();
+          handleResetZoom();
+          return;
+        }
         // Handle Ctrl+A (Select All) globally in the notes editor
         if (e.key === 'a' && (e.ctrlKey || e.metaKey)) {
           e.preventDefault();
@@ -1310,38 +1352,76 @@ const NotesTab: React.FC<NotesTabProps> = ({ problem, onNotesSaved }) => {
       tabIndex={0}
     >
       {/* Action Buttons */}
-      <div className={`flex justify-end gap-2 ${isFullscreen ? 'mb-4' : 'mb-2'}`}>
-        <button
-          onClick={() => setShowClearConfirm(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
-          title="Clear all notes"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-          Clear Notes
-        </button>
-        <button
-          onClick={toggleFullscreen}
-          className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-          title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-        >
-          {isFullscreen ? (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Exit Fullscreen
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-              </svg>
-              Fullscreen
-            </>
-          )}
-        </button>
+      <div className={`flex flex-wrap items-center justify-between gap-2 ${isFullscreen ? 'mb-4' : 'mb-2'}`}>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">Zoom</span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              disabled={!canZoomOut}
+              className="flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Zoom out"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <span className="text-sm font-medium text-gray-700 w-14 text-center tabular-nums">
+              {zoomPercentage}%
+            </span>
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              disabled={!canZoomIn}
+              className="flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Zoom in"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={handleResetZoom}
+            disabled={zoomLevel === 1}
+            className="flex items-center gap-1 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Reset zoom"
+          >
+            <RefreshCcw className="w-4 h-4" />
+            Reset
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowClearConfirm(true)}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
+            title="Clear all notes"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Clear Notes
+          </button>
+          <button
+            onClick={toggleFullscreen}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          >
+            {isFullscreen ? (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Exit Fullscreen
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+                Fullscreen
+              </>
+            )}
+          </button>
+        </div>
       </div>
       
       {blocks.map(renderBlock)}

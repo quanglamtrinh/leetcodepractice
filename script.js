@@ -619,14 +619,14 @@ function setupAutoSave(editor) {
 
 // Tab switching functionality
 function initializeTabs() {
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    const tabContents = document.querySelectorAll('.tab-content');
+    const tabButtons = document.querySelectorAll('#problemDetailView .tab-btn');
+    const tabContents = document.querySelectorAll('#problemDetailView .tab-content');
     
     tabButtons.forEach(button => {
         button.addEventListener('click', () => {
             const targetTab = button.getAttribute('data-tab');
             
-            // Remove active class from all tabs and contents
+            // Remove active class from all tabs and contents in this view only
             tabButtons.forEach(btn => btn.classList.remove('active'));
             tabContents.forEach(content => content.classList.remove('active'));
             

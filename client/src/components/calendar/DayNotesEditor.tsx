@@ -28,7 +28,9 @@ import {
   Code,
   CheckSquare,
   Heading1,
-  Quote
+  Quote,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { calendarService } from '../../services/calendarService';
 import { formatDateForDisplay, formatDateToISO } from '../../utils/dateUtils';
@@ -43,6 +45,19 @@ interface DayNotesEditorProps {
   autoSaveDelay?: number;
 }
 
+// Enhanced logging utility for debugging
+const logDebug = (message: string, data?: any) => {
+  console.log(`🔍 DayNotesEditor Debug: ${message}`, data || '');
+};
+
+const logError = (message: string, error?: any) => {
+  console.error(`❌ DayNotesEditor Error: ${message}`, error || '');
+};
+
+const logSuccess = (message: string, data?: any) => {
+  console.log(`✅ DayNotesEditor Success: ${message}`, data || '');
+};
+
 const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
   selectedDate,
   className = '',
@@ -51,12 +66,14 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
   const [content, setContent] = useState<JSONContent | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Ask AI state
   const [showAskAI, setShowAskAI] = useState(false);
   const [selectedTextForAI, setSelectedTextForAI] = useState('');
 
   const editorRef = useRef<Editor | null>(null);
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const isUnmountedRef = useRef(false);
 
   // Cleanup effect
@@ -232,14 +249,31 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
     const currentContentStr = JSON.stringify(content);
     const lastContentStr = lastContentRef.current ? JSON.stringify(lastContentRef.current) : '';
 
-    // Only proceed if content actually changed
-    if (currentContentStr === lastContentStr) {
+    // Check if content is effectively empty (just empty paragraphs)
+    const isContentEmpty = !content.content || 
+      content.content.length === 0 || 
+      (content.content.length === 1 && 
+       content.content[0].type === 'paragraph' && 
+       (!content.content[0].content || content.content[0].content.length === 0));
+
+    // Check if last content was also empty
+    const wasLastContentEmpty = !lastContentRef.current || 
+      !lastContentRef.current.content || 
+      lastContentRef.current.content.length === 0 || 
+      (lastContentRef.current.content.length === 1 && 
+       lastContentRef.current.content[0].type === 'paragraph' && 
+       (!lastContentRef.current.content[0].content || lastContentRef.current.content[0].content.length === 0));
+
+    // Only skip save if both are empty or content is truly identical
+    if (currentContentStr === lastContentStr && !(isContentEmpty && !wasLastContentEmpty)) {
       console.log(`⏭️ Content unchanged for ${dateStr}, skipping save`);
       return;
     }
 
     console.log(`✏️ Content changed for ${dateStr}:`, {
       contentLength: currentContentStr.length,
+      isEmpty: isContentEmpty,
+      wasEmpty: wasLastContentEmpty,
       preview: currentContentStr.substring(0, 100)
     });
 
@@ -285,6 +319,52 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
     }
     // If still typing slash command, don't save yet
   }, [debouncedSave]);
+
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen(prev => !prev);
+  }, []);
+
+  useEffect(() => {
+    const htmlElement = document.documentElement;
+    if (isFullscreen) {
+      document.body.classList.add('day-notes-fullscreen-active');
+      htmlElement.classList.add('day-notes-fullscreen-active');
+    } else {
+      document.body.classList.remove('day-notes-fullscreen-active');
+      htmlElement.classList.remove('day-notes-fullscreen-active');
+    }
+
+    return () => {
+      document.body.classList.remove('day-notes-fullscreen-active');
+      htmlElement.classList.remove('day-notes-fullscreen-active');
+    };
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const container = editorContainerRef.current;
+      const target = event.target as HTMLElement | null;
+      const isEventInsideEditor = container && target ? container.contains(target) : false;
+
+      if (!isEventInsideEditor && !isFullscreen) {
+        return;
+      }
+
+      if (event.key === 'F11') {
+        event.preventDefault();
+        if (event.repeat) {
+          return;
+        }
+        toggleFullscreen();
+      } else if (event.key === 'Escape' && isFullscreen) {
+        event.preventDefault();
+        setIsFullscreen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen, toggleFullscreen]);
 
   // Listen for Ask AI events
   React.useEffect(() => {
@@ -534,7 +614,7 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
     },
   ], []);
 
-  // Create extensions for Novel editor with slash commands
+  // Create extensions for Novel editor with slash commands (matching NovelNotesTab)
   const extensions = React.useMemo(() => {
     const baseExtensions = [
       StarterKit.configure({
@@ -544,11 +624,57 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
             class: 'my-custom-bullet-list',
             style: 'list-style-type: disc; padding-left: 1.5rem;',
           },
+          keepMarks: false,
+          keepAttributes: false,
         },
         orderedList: {
           HTMLAttributes: {
             class: 'my-custom-ordered-list', 
             style: 'list-style-type: decimal; padding-left: 1.5rem;',
+          },
+          keepMarks: false,
+          keepAttributes: false,
+        },
+        bold: {
+          HTMLAttributes: {
+            class: 'novel-bold',
+          },
+        },
+        italic: {
+          HTMLAttributes: {
+            class: 'novel-italic',
+          },
+        },
+        strike: {
+          HTMLAttributes: {
+            class: 'novel-strike',
+          },
+        },
+        code: {
+          HTMLAttributes: {
+            class: 'novel-inline-code',
+          },
+        },
+        codeBlock: {
+          HTMLAttributes: {
+            class: 'novel-code-block',
+            spellcheck: 'false',
+          },
+        },
+        heading: {
+          levels: [1, 2, 3, 4, 5, 6],
+          HTMLAttributes: {
+            class: 'novel-heading',
+          },
+        },
+        paragraph: {
+          HTMLAttributes: {
+            class: 'novel-paragraph',
+          },
+        },
+        blockquote: {
+          HTMLAttributes: {
+            class: 'novel-blockquote',
           },
         },
       }),
@@ -583,7 +709,6 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
     ];
 
     // Add command extension for slash commands
-
     baseExtensions.push(
       Command.configure({
         suggestion: {
@@ -591,8 +716,6 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
             return suggestionItems
               .filter(item => {
                 if (query.length === 0) return true;
-                // Require at least 2 characters for search to prevent single character matches
-                if (query.length === 1) return false;
                 const searchText = query.toLowerCase();
                 return (
                   item.title.toLowerCase().includes(searchText) ||
@@ -614,8 +737,17 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
     return baseExtensions;
   }, [selectedDate, suggestionItems]);
 
+  const editorContainerClassNames = [
+    'day-notes-editor',
+    className,
+    isFullscreen ? 'day-notes-editor-fullscreen' : ''
+  ].filter(Boolean).join(' ');
+
   return (
-    <div className={`day-notes-editor ${className}`}>
+    <div
+      ref={editorContainerRef}
+      className={editorContainerClassNames}
+    >
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div className="notes-header">
@@ -645,6 +777,18 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
             </svg>
             Save
+          </button>
+          <button
+            onClick={toggleFullscreen}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+            title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen (F11)'}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-4 h-4" />
+            ) : (
+              <Maximize2 className="w-4 h-4" />
+            )}
+            {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           </button>
         </div>
       </div>
@@ -745,6 +889,45 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
 
               <div className="h-6 w-px bg-muted mx-1" />
 
+              {/* Text Style Dropdown */}
+              <div className="relative">
+                <EditorBubbleItem
+                  onSelect={(editor) => {
+                    // Toggle between paragraph and heading
+                    if (editor.isActive('heading')) {
+                      editor.chain().focus().setParagraph().run();
+                    } else {
+                      editor.chain().focus().setHeading({ level: 1 }).run();
+                    }
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <span className="text-xs">Text</span>
+                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <polyline points="6,9 12,15 18,9" />
+                  </svg>
+                </EditorBubbleItem>
+              </div>
+
+              <div className="h-6 w-px bg-muted mx-1" />
+
+              {/* Link Button */}
+              <EditorBubbleItem
+                onSelect={(editor) => {
+                  const url = window.prompt('Enter URL:');
+                  if (url) {
+                    editor.chain().focus().setLink({ href: url }).run();
+                  }
+                }}
+                className="p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              </EditorBubbleItem>
+
+              <div className="h-6 w-px bg-muted mx-1" />
+
               {/* Bold */}
               <EditorBubbleItem
                 onSelect={(editor) => editor.chain().focus().toggleBold().run()}
@@ -779,6 +962,18 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
                 </svg>
               </EditorBubbleItem>
 
+              {/* Strikethrough */}
+              <EditorBubbleItem
+                onSelect={(editor) => editor.chain().focus().toggleStrike().run()}
+                className="p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M16 4H9a3 3 0 0 0-2.83 4" />
+                  <path d="M14 12a4 4 0 0 1 0 8H6" />
+                  <line x1="4" y1="12" x2="20" y2="12" />
+                </svg>
+              </EditorBubbleItem>
+
               {/* Code */}
               <EditorBubbleItem
                 onSelect={(editor) => editor.chain().focus().toggleCode().run()}
@@ -787,6 +982,36 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <polyline points="16,18 22,12 16,6" />
                   <polyline points="8,6 2,12 8,18" />
+                </svg>
+              </EditorBubbleItem>
+
+              <div className="h-6 w-px bg-muted mx-1" />
+
+              {/* Quote */}
+              <EditorBubbleItem
+                onSelect={(editor) => editor.chain().focus().toggleBlockquote().run()}
+                className="p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" />
+                  <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z" />
+                </svg>
+              </EditorBubbleItem>
+
+              <div className="h-6 w-px bg-muted mx-1" />
+
+              {/* More Options */}
+              <EditorBubbleItem
+                onSelect={(editor) => {
+                  // Could open a more options menu
+                  console.log('More options clicked');
+                }}
+                className="p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="1" />
+                  <circle cx="19" cy="12" r="1" />
+                  <circle cx="5" cy="12" r="1" />
                 </svg>
               </EditorBubbleItem>
             </EditorBubble>

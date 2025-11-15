@@ -46,7 +46,9 @@ import {
   CheckSquare,
   Heading1,
   Quote,
-  Table as TableIcon
+  Table as TableIcon,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { Problem } from './ProblemList';
 import { BackwardCompatibilityConverter } from '../utils/BackwardCompatibilityConverter';
@@ -102,6 +104,7 @@ const logError = (message: string, error?: any) => {
 const logSuccess = (message: string, data?: any) => {
   console.log(`✅ NovelNotesTab Success: ${message}`, data || '');
 };
+
 
 // Fallback editor component for when Novel editor fails to load
 const FallbackEditor: React.FC<{
@@ -811,6 +814,7 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [editorLoadError, setEditorLoadError] = useState<string | null>(null);
   const [wordCount, setWordCount] = useState<number>(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>({
     isSaving: false,
     lastSaveTime: null,
@@ -826,6 +830,34 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
   const editorRef = useRef<Editor | null>(null);
   const cleanupFunctionsRef = useRef<Array<() => void>>([]);
   const isUnmountedRef = useRef(false);
+
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen(prev => !prev);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isFullscreen) {
+        event.preventDefault();
+        setIsFullscreen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    if (isFullscreen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isFullscreen]);
 
   // Retry configuration for network operations (memoized to prevent re-renders)
   const retryConfig: RetryConfig = React.useMemo(() => ({
@@ -1722,10 +1754,12 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
     },
   ];
 
+  const containerClasses = `novel-notes-tab ${className} ${isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-auto' : ''}`;
+
   return (
-    <div className={`novel-notes-tab ${className}`}>
+    <div className={containerClasses} style={isFullscreen ? { padding: '1.5rem' } : undefined}>
       {/* Enhanced header with better status reporting */}
-      <div className="flex justify-between items-center m-4">
+      <div className="flex flex-wrap justify-between items-center gap-3 m-4">
         <div className="notes-header flex items-center gap-3">
           <span className="text-lg font-medium">📝 Notes</span>
           {isLoading && (
@@ -1760,21 +1794,24 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
           )}
         </div>
         
-        <div className="flex gap-2">
-          {/* <button
-            onClick={() => {
-              if (content) {
-                saveNotes(content);
-              }
-            }}
-            className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
-            title="Save notes manually"
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={toggleFullscreen}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            Save
-          </button> */}
+            {isFullscreen ? (
+              <>
+                <Minimize2 className="w-4 h-4" />
+                Exit Fullscreen
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-4 h-4" />
+                Fullscreen
+              </>
+            )}
+          </button>
           <button
             onClick={() => setShowClearConfirm(true)}
             className="flex items-center gap-2 px-3 py-2 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
