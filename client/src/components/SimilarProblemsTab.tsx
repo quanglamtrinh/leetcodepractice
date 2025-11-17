@@ -126,8 +126,12 @@ const AddProblemsTab: React.FC<AddProblemsTabProps> = ({ problem, onSelectProble
   const fetchSimilarProblems = async () => {
     try {
       const response = await fetch(`/api/problems/${problem.id}/similar`);
+      if (!response.ok) {
+        setSimilarProblems([]);
+        return;
+      }
       const similar = await response.json();
-      setSimilarProblems(similar);
+      setSimilarProblems(Array.isArray(similar) ? similar : []);
     } catch (error) {
       console.error('Error fetching similar problems:', error);
       setSimilarProblems([]);

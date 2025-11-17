@@ -8,16 +8,18 @@ interface SolvedProblemsListProps {
 }
 
 const SolvedProblemsList: React.FC<SolvedProblemsListProps> = ({ problems, selectedProblem, onSelectProblem }) => {
+  const safeProblems = Array.isArray(problems) ? problems : [];
+  
   return (
     <>
       <div className="solved-problems-header">
         <h2>Solved Problems</h2>
         <div className="solved-stats">
-          <span className="solved-count">{problems.length} solved</span>
+          <span className="solved-count">{safeProblems.length} solved</span>
         </div>
       </div>
       <div className="problem-list solved-problems-list">
-        {problems.map(problem => (
+        {safeProblems.map(problem => (
           <div
             key={problem.id}
             className={`problem-item-detail solved-problem-item ${problem.difficulty.toLowerCase()}${selectedProblem && selectedProblem.id === problem.id ? ' selected' : ''}`}

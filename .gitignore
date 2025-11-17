@@ -128,3 +128,12 @@ public
 .temp/
 .tmp/
 
+# Database backups (local only, don't commit to git)
+backups/
+*.sql
+*.sql.zip
+*.sql.gz
+
+# Backup logs
+logs/
+

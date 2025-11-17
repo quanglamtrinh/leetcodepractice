@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -13,6 +11,8 @@ services:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Schema chỉ chạy lần đầu khi volume mới được tạo
+      # Nếu muốn reset database, xóa volume: docker-compose down -v
       - ./comprehensive-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U leetcodeuser -d leetcodepractice"]

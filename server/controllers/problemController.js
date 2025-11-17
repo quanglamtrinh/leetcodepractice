@@ -81,6 +81,93 @@ exports.updateProgress = asyncHandler(async (req, res) => {
   res.json(result.rows[0]);
 });
 
+// Get solved problems
+exports.getSolvedProblems = asyncHandler(async (req, res) => {
+  const result = await pool.query(
+    'SELECT * FROM problems WHERE solved = true ORDER BY updated_at DESC'
+  );
+  res.json(result.rows);
+});
+
+// Get similar problems
+exports.getSimilarProblems = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  
+  const result = await pool.query(
+    `SELECT p.* FROM problems p
+     WHERE p.id = ANY(
+       SELECT unnest(similar_problems) FROM problems WHERE id = $1
+     )
+     ORDER BY p.title`,
+    [id]
+  );
+  
+  res.json(result.rows);
+});
+
+// Get review history
+exports.getReviewHistory = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  
+  const result = await pool.query(
+    `SELECT * FROM review_history 
+     WHERE problem_id = $1 
+     ORDER BY review_date DESC`,
+    [id]
+  );
+  
+  res.json(result.rows);
+});
+
+// Add similar problem
+exports.addSimilarProblem = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { problemId } = req.body;
+  
+  if (!problemId) {
+    throw ApiError.badRequest('problemId is required');
+  }
+  
+  // Add bidirectional relationship
+  await pool.query(
+    `UPDATE problems 
+     SET similar_problems = array_append(similar_problems, $2)
+     WHERE id = $1 AND NOT ($2 = ANY(similar_problems))`,
+    [id, problemId]
+  );
+  
+  await pool.query(
+    `UPDATE problems 
+     SET similar_problems = array_append(similar_problems, $2)
+     WHERE id = $1 AND NOT ($2 = ANY(similar_problems))`,
+    [problemId, id]
+  );
+  
+  res.json({ success: true, message: 'Similar problem added' });
+});
+
+// Remove similar problem
+exports.removeSimilarProblem = asyncHandler(async (req, res) => {
+  const { id, similarId } = req.params;
+  
+  // Remove bidirectional relationship
+  await pool.query(
+    `UPDATE problems 
+     SET similar_problems = array_remove(similar_problems, $2)
+     WHERE id = $1`,
+    [id, parseInt(similarId)]
+  );
+  
+  await pool.query(
+    `UPDATE problems 
+     SET similar_problems = array_remove(similar_problems, $2)
+     WHERE id = $1`,
+    [parseInt(similarId), id]
+  );
+  
+  res.json({ success: true, message: 'Similar problem removed' });
+});
+
 // Get statistics
 exports.getStats = asyncHandler(async (req, res) => {
   const result = await pool.query(`

@@ -16,6 +16,10 @@
     "format:check": "prettier --check \"**/*.{js,json,md}\"",
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/seed-database.js",
+    "db:backup": "node server/scripts/backupDatabase.js",
+    "db:restore": "node server/scripts/restoreDatabase.js",
+    "db:restore-local": "node server/scripts/restoreFromLocal.js",
+    "db:import-problems": "node server/scripts/importProblems.js",
     "precommit": "npm run lint && npm run format:check"
   },
   "dependencies": {

@@ -35,6 +35,19 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// Solved problems endpoint
+router.get('/solved', async (req, res) => {
+  const pool = require('../config/database');
+  try {
+    const result = await pool.query(
+      'SELECT * FROM problems WHERE solved = true ORDER BY updated_at DESC'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch solved problems' });
+  }
+});
+
 // Mount routes
 router.use('/problems', problemRoutes);
 router.use('/calendar', calendarRoutes);
