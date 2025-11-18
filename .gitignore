@@ -137,3 +137,10 @@ backups/
 # Backup logs
 logs/
 
+
+# Archive folders
+archive/
+
+# Data files
+data/csv/*.csv
+data/scripts/*.py
