@@ -4,12 +4,28 @@ const pool = require('../config/database');
 
 async function importProblems() {
   try {
-    const csvPath = path.join(__dirname, '../../leetcode_comprehensive.csv');
+    // Try multiple possible locations
+    const possiblePaths = [
+      path.join(__dirname, '../../leetcode_comprehensive.csv'),
+      '/app/leetcode_comprehensive.csv',
+      path.join(__dirname, '../leetcode_comprehensive.csv')
+    ];
     
-    if (!fs.existsSync(csvPath)) {
-      console.error('❌ CSV file not found:', csvPath);
+    let csvPath = null;
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        csvPath = p;
+        break;
+      }
+    }
+    
+    if (!csvPath) {
+      console.error('❌ CSV file not found in any of these locations:');
+      possiblePaths.forEach(p => console.error('  -', p));
       process.exit(1);
     }
+    
+    console.log('📂 Found CSV file at:', csvPath);
 
     console.log('📂 Reading CSV file...');
     const csvContent = fs.readFileSync(csvPath, 'utf8');
