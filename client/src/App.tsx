@@ -31,7 +31,8 @@ const App: React.FC = () => {
   const [showAddProblemForm, setShowAddProblemForm] = useState(false);
 
   useEffect(() => {
-    fetch('/api/problems')
+    const apiUrl = process.env.REACT_APP_API_URL || '';
+    fetch(`${apiUrl}/api/problems`)
       .then(res => res.json())
       .then(setProblems);
   }, []);
