@@ -17,8 +17,10 @@ import {
   UpdatedImage,
   HorizontalRule,
   Command,
-  renderItems
+  renderItems,
+  ImageResizer
 } from 'novel';
+import Youtube from '@tiptap/extension-youtube';
 import { Editor } from '@tiptap/react';
 import { Range } from '@tiptap/core';
 import {
@@ -30,7 +32,9 @@ import {
   Heading1,
   Quote,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Image as ImageIcon,
+  Youtube as YoutubeIcon
 } from 'lucide-react';
 import { calendarService } from '../../services/calendarService';
 import { formatDateForDisplay, formatDateToISO } from '../../utils/dateUtils';
@@ -612,6 +616,61 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
         editor.chain().focus().deleteRange(range).setHorizontalRule().run();
       },
     },
+    {
+      title: 'Image',
+      description: 'Upload an image from your computer.',
+      searchTerms: ['photo', 'picture', 'media', 'img'],
+      icon: <ImageIcon size={18} />,
+      command: ({ editor, range }: { editor: Editor; range: Range }) => {
+        editor.chain().focus().deleteRange(range).run();
+        // Create file input for image upload
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async () => {
+          if (input.files?.length) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const base64 = e.target?.result as string;
+              if (base64) {
+                editor.chain().focus().setImage({ src: base64 }).run();
+              }
+            };
+            reader.readAsDataURL(file);
+          }
+        };
+        input.click();
+      },
+    },
+    {
+      title: 'Youtube',
+      description: 'Embed a Youtube video.',
+      searchTerms: ['video', 'youtube', 'embed', 'yt'],
+      icon: <YoutubeIcon size={18} />,
+      command: ({ editor, range }: { editor: Editor; range: Range }) => {
+        const videoLink = window.prompt('Please enter Youtube Video Link');
+        // YouTube URL regex from https://regexr.com/3dj5t
+        const ytregex = new RegExp(
+          /^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?$/
+        );
+
+        if (videoLink && ytregex.test(videoLink)) {
+          editor
+            .chain()
+            .focus()
+            .deleteRange(range)
+            .setYoutubeVideo({
+              src: videoLink,
+            })
+            .run();
+        } else {
+          if (videoLink !== null && videoLink !== '') {
+            alert('Please enter a correct Youtube Video Link');
+          }
+        }
+      },
+    },
   ], []);
 
   // Create extensions for Novel editor with slash commands (matching NovelNotesTab)
@@ -695,7 +754,12 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
       }),
       UpdatedImage.configure({
         HTMLAttributes: { class: 'rounded-lg border border-muted' },
-        allowBase64: false,
+        allowBase64: true, // Allow base64 for local image uploads
+      }),
+      Youtube.configure({
+        HTMLAttributes: { class: 'rounded-lg border border-muted' },
+        width: 640,
+        height: 480,
       }),
       HorizontalRule.configure({
         HTMLAttributes: { class: 'mt-4 mb-6 border-t border-muted-foreground/20' },
@@ -836,6 +900,7 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
                 spellcheck: 'false',
               },
             }}
+            slotAfter={<ImageResizer />}
           >
             <EditorCommand className="z-50 h-auto max-h-[330px] overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md transition-all">
               <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">

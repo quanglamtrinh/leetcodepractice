@@ -19,8 +19,10 @@ import {
   Command,
   renderItems,
   handleCommandNavigation,
+  ImageResizer,
   type EditorInstance
 } from 'novel';
+import Youtube from '@tiptap/extension-youtube';
 import { Editor } from '@tiptap/react';
 import { Range } from '@tiptap/core';
 import { useDebouncedCallback } from 'use-debounce';
@@ -48,7 +50,9 @@ import {
   Quote,
   Table as TableIcon,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Image as ImageIcon,
+  Youtube as YoutubeIcon
 } from 'lucide-react';
 import { Problem } from './ProblemList';
 import { BackwardCompatibilityConverter } from '../utils/BackwardCompatibilityConverter';
@@ -286,7 +290,14 @@ const createOptimizedExtensions = (placeholderText: string = "Type '/' for comma
       HTMLAttributes: {
         class: 'rounded-lg border border-muted',
       },
-      allowBase64: false, // Optimize performance by disabling base64 images
+      allowBase64: false, // Disable base64 to prevent large file sizes - use external URLs instead
+    }),
+    Youtube.configure({
+      HTMLAttributes: {
+        class: 'rounded-lg border border-muted',
+      },
+      width: 640,
+      height: 480,
     }),
     HorizontalRule.configure({
       HTMLAttributes: {
@@ -459,6 +470,7 @@ const NovelEditorWrapper: React.FC<{
           extensions={extensions}
           className="novel-editor"
           editorProps={editorProps}
+          slotAfter={<ImageResizer />}
         >
           <EditorCommand className="z-50 h-auto max-h-[330px] overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md transition-all">
             <EditorCommandEmpty className="px-2 text-muted-foreground">No results</EditorCommandEmpty>
@@ -1750,6 +1762,58 @@ const NovelNotesTab: React.FC<NovelNotesTabProps> = ({
       ),
       command: ({ editor, range }: { editor: Editor; range: Range }) => {
         editor.chain().focus().deleteRange(range).insertTable({ rows: 5, cols: 5, withHeaderRow: true }).run();
+      },
+    },
+    {
+      title: 'Image',
+      description: 'Insert an image from URL.',
+      searchTerms: ['photo', 'picture', 'media', 'img', 'url'],
+      icon: <ImageIcon size={18} />,
+      command: ({ editor, range }: { editor: Editor; range: Range }) => {
+        const imageUrl = window.prompt('Please enter image URL (e.g., https://example.com/image.jpg)');
+        
+        if (imageUrl && imageUrl.trim()) {
+          // Basic URL validation
+          try {
+            new URL(imageUrl);
+            editor
+              .chain()
+              .focus()
+              .deleteRange(range)
+              .setImage({ src: imageUrl })
+              .run();
+          } catch (e) {
+            alert('Please enter a valid image URL starting with http:// or https://');
+          }
+        }
+      },
+    },
+    {
+      title: 'Youtube',
+      description: 'Embed a Youtube video.',
+      searchTerms: ['video', 'youtube', 'embed', 'yt'],
+      icon: <YoutubeIcon size={18} />,
+      command: ({ editor, range }: { editor: Editor; range: Range }) => {
+        const videoLink = window.prompt('Please enter Youtube Video Link');
+        // YouTube URL regex from https://regexr.com/3dj5t
+        const ytregex = new RegExp(
+          /^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?$/
+        );
+
+        if (videoLink && ytregex.test(videoLink)) {
+          editor
+            .chain()
+            .focus()
+            .deleteRange(range)
+            .setYoutubeVideo({
+              src: videoLink,
+            })
+            .run();
+        } else {
+          if (videoLink !== null && videoLink !== '') {
+            alert('Please enter a correct Youtube Video Link');
+          }
+        }
       },
     },
   ];

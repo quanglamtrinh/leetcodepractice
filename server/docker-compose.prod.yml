@@ -1,52 +1,59 @@
+# Production docker-compose for EC2 deployment
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
 services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: leetcode-postgres
+    container_name: leetcode-postgres-prod
     environment:
       POSTGRES_DB: ${DB_NAME:-leetcodepractice}
       POSTGRES_USER: ${DB_USER:-leetcodeuser}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-1}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Schema chỉ chạy lần đầu khi volume mới được tạo
-      # Nếu muốn reset database, xóa volume: docker-compose down -v
       - ./comprehensive-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U leetcodeuser -d leetcodepractice"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-leetcodeuser} -d ${DB_NAME:-leetcodepractice}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - leetcode-network
+    restart: unless-stopped
 
-  # Application Server (Development)
-  app:
+  # Backend API Server
+  backend:
     build:
-      context: ./server
+      context: .
       dockerfile: Dockerfile
-    container_name: leetcode-app
+    container_name: leetcode-backend-prod
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-leetcodepractice}
       DB_USER: ${DB_USER:-leetcodeuser}
-      DB_PASSWORD: ${DB_PASSWORD:-1}
+      DB_PASSWORD: ${DB_PASSWORD}
       PORT: 3001
-      NODE_ENV: development
+      NODE_ENV: production
+      # Add S3 credentials when ready
+      # AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      # AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      # AWS_REGION: ${AWS_REGION}
+      # S3_BUCKET_NAME: ${S3_BUCKET_NAME}
     ports:
       - "3001:3001"
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
-      - ./server:/app
-      - /app/node_modules
-      - ./server/logs:/app/logs
-      - ./server/data:/app/data
-      - ./server/backups:/app/backups
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./backups:/app/backups
     networks:
       - leetcode-network
     restart: unless-stopped
@@ -58,4 +65,3 @@ volumes:
 networks:
   leetcode-network:
     driver: bridge
-
