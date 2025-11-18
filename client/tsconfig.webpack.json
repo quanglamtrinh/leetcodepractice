@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": false,
+    "outDir": "../"
+  },
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/__tests__/**/*",
+    "src/setupTests.ts"
+  ],
+  "include": [
+    "src/novelMain.tsx",
+    "src/integration/novelNotesTabIntegration.ts",
+    "src/components/NovelNotesTab.tsx",
+    "src/utils/BackwardCompatibilityConverter.ts",
+    "src/styles/**/*"
+  ]
+}

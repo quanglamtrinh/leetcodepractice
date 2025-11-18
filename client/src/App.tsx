@@ -8,9 +8,12 @@ import SolvedProblemsList from './components/SolvedProblemsList';
 import SolvedDetailView from './components/SolvedDetailView';
 import DueTodayFlashcards from './components/DueTodayFlashcards';
 import AddProblemForm from './components/AddProblemForm';
+import CalendarTab from './components/CalendarTab';
+import { calendarService } from './services/calendarService';
 import './styles.css';
+import './styles/novel-editor.css';
 
-const MENU_KEYS = ['practice', 'solved', 'due-today', 'pomodoro'] as const;
+const MENU_KEYS = ['practice', 'solved', 'due-today', 'calendar', 'pomodoro'] as const;
 type MenuKey = typeof MENU_KEYS[number];
 
 const App: React.FC = () => {
@@ -92,6 +95,10 @@ const App: React.FC = () => {
       setView(menu as MenuKey);
       setSelectedConcept(null); // Reset concept selection when changing menu
       setSelectedProblem(null);
+      // Clear search when switching away from practice view
+      if (menu !== 'practice') {
+        setSearchQuery('');
+      }
     }
   };
 
@@ -193,6 +200,16 @@ const App: React.FC = () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ solved: newSolvedState })
     });
+    
+    // Invalidate calendar cache when problems are solved/unsolved
+    if (newSolvedState) {
+      // Problem was just solved - invalidate today's cache
+      calendarService.invalidateCacheForProblemSolved(new Date());
+    } else {
+      // Problem was unsolved - clear all cache to be safe
+      calendarService.clearCache();
+    }
+    
     // Refresh problems and solvedProblems
     fetch('/api/problems')
       .then(res => res.json())
@@ -216,24 +233,26 @@ const App: React.FC = () => {
       <div className="main-content" style={{ flex: 1, padding: '2rem' }}>
         <div className="header-section">
           <h1>LeetCode Practice</h1>
-          <div className="search-container">
-            <input
-              type="text"
-              placeholder="Search problems by title, concept, or difficulty..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="clear-search-btn"
-                title="Clear search"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+          {view === 'practice' && (
+            <div className="search-container">
+              <input
+                type="text"
+                placeholder="Search problems by title, concept, or difficulty..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="clear-search-btn"
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          )}
         </div>
         
         {/* Search Results Counter */}
@@ -271,6 +290,8 @@ const App: React.FC = () => {
           ) : (
             <DueTodayFlashcards problems={dueTodayProblems} />
           )
+        ) : view === 'calendar' ? (
+          <CalendarTab />
         ) : view === 'practice' && !selectedConcept && !searchQuery ? (
           <ConceptList problems={filteredProblems} onSelect={handleConceptSelect} />
         ) : selectedConcept && selectedProblem && !searchQuery ? (

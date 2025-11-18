@@ -30,6 +30,10 @@ const Sidebar: React.FC<SidebarProps> = ({ easy, medium, hard, dueToday, activeM
         <span>Due Today</span>
         <div className="badge">{dueToday}</div>
       </div>
+      <div className={`menu-item${activeMenu === 'calendar' ? ' active' : ''}`} id="menu-calendar" onClick={() => onMenuSelect('calendar')}>
+        <div className="icon"></div>
+        <span>Calendar</span>
+      </div>
       <div className={`menu-item${activeMenu === 'pomodoro' ? ' active' : ''}`} id="menu-pomodoro" onClick={() => onMenuSelect('pomodoro')}>
         <div className="icon"></div>
         <span>Pomodoro Timer</span>

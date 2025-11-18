@@ -1,5 +1,6 @@
 import React from 'react';
 import './integration/notesTabIntegration.js';
+import './styles/novel-editor.css';
 
 // This file serves as the entry point for the React components
 // The actual mounting is handled by the integration script

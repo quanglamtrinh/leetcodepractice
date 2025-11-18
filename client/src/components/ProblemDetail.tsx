@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Problem } from './ProblemList';
-import NotesTab from './NotesTab';
+import NovelNotesTab from './NovelNotesTab';
 import SolutionTab from './SolutionTab';
 import ReviewHistoryTab from './ReviewHistoryTab';
 import AddProblemsTab from './SimilarProblemsTab';
@@ -16,7 +16,7 @@ const ProblemDetail: React.FC<ProblemDetailProps> = ({ problem, onNotesSaved, on
   const [activeTab, setActiveTab] = useState<'notes' | 'solution' | 'review' | 'similar'>('notes');
 
   return (
-    <div className="notes-panel">
+    <div className="notes-panel-container">
       <div className="notes-tabs">
         <button
           className={`tab-btn${activeTab === 'notes' ? ' active' : ''}`}
@@ -41,7 +41,7 @@ const ProblemDetail: React.FC<ProblemDetailProps> = ({ problem, onNotesSaved, on
       </div>
       {/* Notes Tab */}
       <div className={`tab-content${activeTab === 'notes' ? ' active' : ''}`} id="notes-tab">
-        <NotesTab problem={problem} onNotesSaved={onNotesSaved} />
+        <NovelNotesTab problem={problem} onNotesSaved={onNotesSaved} />
       </div>
       {/* Solution Tab */}
       <div className={`tab-content${activeTab === 'solution' ? ' active' : ''}`} id="solution-tab">

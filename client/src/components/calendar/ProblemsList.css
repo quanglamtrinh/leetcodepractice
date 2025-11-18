@@ -1,0 +1,369 @@
+/* Problems List Component Styles */
+.problems-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+
+.problems-list-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  width: 100%;
+}
+
+/* Problem Item Styles - Match main solved problems design */
+.problems-list .problem-item-detail {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.problems-list .problem-item-detail::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 0%, rgba(59, 130, 246, 0.05) 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.problems-list .problem-item-detail:hover {
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.problems-list .problem-item-detail:hover::before {
+  opacity: 1;
+}
+
+.problems-list .problem-item-detail:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
+
+/* Difficulty indicators - colored left border */
+.problems-list .problem-item-detail.easy::after {
+  content: "";
+  width: 3px;
+  height: 100%;
+  background-color: #10b981;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.problems-list .problem-item-detail.medium::after {
+  content: "";
+  width: 3px;
+  height: 100%;
+  background-color: #f59e0b;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.problems-list .problem-item-detail.hard::after {
+  content: "";
+  width: 3px;
+  height: 100%;
+  background-color: #ef4444;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* Problem title layout */
+.problems-list .problem-title-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 12px;
+}
+
+.problems-list .problem-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.problems-list .problem-title-detail {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.problems-list .problem-solve-time {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+/* Actions section */
+.problems-list .solved-problem-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Difficulty badge */
+.problems-list .difficulty-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  min-width: 45px;
+  text-align: center;
+}
+
+.problems-list .difficulty-badge.difficulty-easy {
+  background: #10b981;
+}
+
+.problems-list .difficulty-badge.difficulty-medium {
+  background: #f59e0b;
+}
+
+.problems-list .difficulty-badge.difficulty-hard {
+  background: #ef4444;
+}
+
+/* Concept badge */
+.problems-list .concept-badge {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+/* LeetCode link */
+.problems-list .leetcode-link {
+  text-decoration: none;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 11px;
+  font-weight: 500;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.problems-list .leetcode-link:hover {
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: #a0aec0;
+}
+
+.empty-state .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.7;
+}
+
+.empty-state p {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 8px 0;
+  color: #718096;
+}
+
+.empty-state small {
+  font-size: 14px;
+  color: #cbd5e0;
+  font-style: italic;
+}
+
+/* Calendar-specific styling for solved problems */
+.problems-list .problem-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.problems-list .problem-solve-time {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .problems-list .problem-item-detail {
+    padding: 10px 12px;
+    margin-bottom: 6px;
+  }
+  
+  .problems-list .problem-title-flex {
+    gap: 8px;
+  }
+  
+  .problems-list .problem-title-detail {
+    font-size: 12px;
+  }
+  
+  .problems-list .solved-problem-actions {
+    gap: 6px;
+  }
+  
+  .problems-list .difficulty-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    min-width: 40px;
+  }
+  
+  .problems-list .concept-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+  
+  .problems-list .leetcode-link {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .problems-list .problem-item-detail {
+    padding: 8px 10px;
+  }
+  
+  .problems-list .problem-title-flex {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  
+  .problems-list .solved-problem-actions {
+    align-self: stretch;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .problems-list .difficulty-badge {
+    font-size: 8px;
+    padding: 2px 5px;
+    min-width: 35px;
+  }
+  
+  .problems-list .concept-badge {
+    font-size: 9px;
+    padding: 2px 5px;
+  }
+  
+  .problems-list .leetcode-link {
+    font-size: 9px;
+    padding: 2px 5px;
+  }
+  
+  .empty-state {
+    padding: 40px 16px;
+  }
+  
+  .empty-state .empty-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+  }
+  
+  .empty-state p {
+    font-size: 14px;
+  }
+  
+  .empty-state small {
+    font-size: 12px;
+  }
+}
+
+/* Focus and Accessibility */
+.problems-list .problem-item-detail:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .problems-list .problem-item-detail {
+    border: 2px solid #000;
+  }
+  
+  .problems-list .problem-item-detail:hover,
+  .problems-list .problem-item-detail:focus {
+    background: #f0f0f0;
+    border-color: #000;
+  }
+  
+  .problems-list .difficulty-badge {
+    border: 1px solid #000;
+  }
+  
+  .problems-list .concept-badge {
+    border: 1px solid #666;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .problems-list .problem-item-detail {
+    transition: none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .problems-list .problem-item-detail {
+    border: 1px solid #000;
+    break-inside: avoid;
+    box-shadow: none;
+    transform: none;
+  }
+  
+  .problems-list .leetcode-link {
+    display: none;
+  }
+}
