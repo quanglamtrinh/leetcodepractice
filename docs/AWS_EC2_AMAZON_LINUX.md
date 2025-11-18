@@ -123,7 +123,7 @@ sudo usermod -aG docker ec2-user
 exit
 ```
 
-### Install Docker Compose
+### Install Docker Composee
 
 ```bash
 # Download Docker Compose
