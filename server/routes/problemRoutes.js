@@ -23,6 +23,9 @@ router.delete('/:id/similar/transitive/:similarId', problemController.removeSimi
 // PUT /api/problems/:id/notes - Update notes
 router.put('/:id/notes', problemController.updateNotes);
 
+// PUT /api/problems/:id/solution - Update solution
+router.put('/:id/solution', problemController.updateSolution);
+
 // PUT /api/problems/:id/progress - Update progress
 router.put('/:id/progress', problemController.updateProgress);
 

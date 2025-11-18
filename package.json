@@ -2,7 +2,7 @@
   "name": "leetcode-practice-backend",
   "version": "1.0.0",
   "description": "Backend for LeetCode Practice App with PostgreSQL",
-  "main": "server.js",
+  "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
     "dev": "nodemon server/server.js",

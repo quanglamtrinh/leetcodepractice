@@ -5,7 +5,7 @@ exports.getEvents = async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     
-    let query = 'SELECT * FROM calendar_events WHERE archived = false';
+    let query = 'SELECT * FROM calendar_events WHERE is_archived = false';
     const params = [];
     
     if (start_date && end_date) {
@@ -77,7 +77,7 @@ exports.deleteEvent = async (req, res) => {
     const { id } = req.params;
     
     const result = await pool.query(
-      'UPDATE calendar_events SET archived = true WHERE id = $1 RETURNING id',
+      'UPDATE calendar_events SET is_archived = true WHERE id = $1 RETURNING id',
       [id]
     );
     
@@ -89,5 +89,64 @@ exports.deleteEvent = async (req, res) => {
   } catch (err) {
     console.error('Error deleting event:', err);
     res.status(500).json({ error: 'Failed to delete event' });
+  }
+};
+
+// Get events for a specific day
+exports.getDayEvents = async (req, res) => {
+  try {
+    const { date } = req.params;
+    
+    const result = await pool.query(
+      'SELECT * FROM calendar_events WHERE event_date = $1 AND is_archived = false ORDER BY created_at DESC',
+      [date]
+    );
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching day events:', err);
+    res.status(500).json({ error: 'Failed to fetch day events' });
+  }
+};
+
+// Get day notes for a specific date
+exports.getDayNotes = async (req, res) => {
+  try {
+    const { date } = req.params;
+    
+    const result = await pool.query(
+      'SELECT notes FROM day_notes WHERE date = $1',
+      [date]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.json({ notes: '' });
+    }
+    
+    res.json({ notes: result.rows[0].notes });
+  } catch (err) {
+    console.error('Error fetching day notes:', err);
+    res.status(500).json({ error: 'Failed to fetch day notes' });
+  }
+};
+
+// Save day notes for a specific date
+exports.saveDayNotes = async (req, res) => {
+  try {
+    const { date } = req.params;
+    const { notes } = req.body;
+    
+    const result = await pool.query(`
+      INSERT INTO day_notes (date, notes)
+      VALUES ($1, $2)
+      ON CONFLICT (date)
+      DO UPDATE SET notes = $2, updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [date, notes]);
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error saving day notes:', err);
+    res.status(500).json({ error: 'Failed to save day notes' });
   }
 };

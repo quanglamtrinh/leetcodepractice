@@ -168,6 +168,23 @@ exports.removeSimilarProblem = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Similar problem removed' });
 });
 
+// Update problem solution
+exports.updateSolution = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { solution } = req.body;
+  
+  const result = await pool.query(
+    'UPDATE problems SET solution = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+    [solution, id]
+  );
+
+  if (result.rows.length === 0) {
+    throw ApiError.notFound('Problem not found');
+  }
+
+  res.json(result.rows[0]);
+});
+
 // Get statistics
 exports.getStats = asyncHandler(async (req, res) => {
   const result = await pool.query(`
