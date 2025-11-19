@@ -5,24 +5,76 @@ const ApiError = require('../utils/ApiError');
 // Get all problems
 exports.getAllProblems = asyncHandler(async (req, res) => {
   const { sortBy = 'concept' } = req.query;
+  const userId = req.user.userId;
   
-  let orderBy = 'concept, title';
+  let orderBy = 'p.concept, p.title';
   if (sortBy === 'popularity') {
-    orderBy = 'popularity DESC NULLS LAST, concept, title';
+    orderBy = 'p.popularity DESC NULLS LAST, p.concept, p.title';
   } else if (sortBy === 'difficulty') {
-    orderBy = 'difficulty, concept, title';
+    orderBy = 'p.difficulty, p.concept, p.title';
   } else if (sortBy === 'acceptance') {
-    orderBy = 'acceptance_rate DESC NULLS LAST, concept, title';
+    orderBy = 'p.acceptance_rate DESC NULLS LAST, p.concept, p.title';
   }
   
-  const result = await pool.query(`SELECT * FROM problems ORDER BY ${orderBy}`);
+  const result = await pool.query(`
+    SELECT 
+      p.*,
+      up.solved,
+      up.solved_at,
+      up.notes AS user_notes
+    FROM problems p
+    LEFT JOIN user_progress up ON p.id = up.problem_id AND up.user_id = $1
+    ORDER BY ${orderBy}
+  `, [userId]);
+  
+  res.json(result.rows);
+});
+
+// Get problems by concept
+exports.getProblemsByConcept = asyncHandler(async (req, res) => {
+  const { concept } = req.params;
+  const userId = req.user.userId;
+  const { sortBy = 'title' } = req.query;
+  
+  let orderBy = 'p.title';
+  if (sortBy === 'popularity') {
+    orderBy = 'p.popularity DESC NULLS LAST, p.title';
+  } else if (sortBy === 'difficulty') {
+    orderBy = 'p.difficulty, p.title';
+  } else if (sortBy === 'acceptance') {
+    orderBy = 'p.acceptance_rate DESC NULLS LAST, p.title';
+  }
+  
+  const result = await pool.query(`
+    SELECT 
+      p.*,
+      up.solved,
+      up.solved_at,
+      up.notes AS user_notes
+    FROM problems p
+    LEFT JOIN user_progress up ON p.id = up.problem_id AND up.user_id = $1
+    WHERE p.concept = $2
+    ORDER BY ${orderBy}
+  `, [userId, concept]);
+  
   res.json(result.rows);
 });
 
 // Get problem by ID
 exports.getProblemById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const result = await pool.query('SELECT * FROM problems WHERE id = $1', [id]);
+  const userId = req.user.userId;
+  
+  const result = await pool.query(`
+    SELECT 
+      p.*,
+      up.solved,
+      up.solved_at,
+      up.notes AS user_notes
+    FROM problems p
+    LEFT JOIN user_progress up ON p.id = up.problem_id AND up.user_id = $1
+    WHERE p.id = $2
+  `, [userId, id]);
   
   if (result.rows.length === 0) {
     throw ApiError.notFound('Problem not found');
@@ -35,17 +87,24 @@ exports.getProblemById = asyncHandler(async (req, res) => {
 exports.updateNotes = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { notes } = req.body;
+  const userId = req.user.userId;
   
-  const result = await pool.query(
-    'UPDATE problems SET notes = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
-    [notes, id]
-  );
-
-  if (result.rows.length === 0) {
-    const error = new Error('Problem not found');
-    error.statusCode = 404;
-    throw error;
+  // Verify problem exists
+  const problemCheck = await pool.query('SELECT id FROM problems WHERE id = $1', [id]);
+  if (problemCheck.rows.length === 0) {
+    throw ApiError.notFound('Problem not found');
   }
+  
+  // Upsert user_progress with notes
+  const result = await pool.query(`
+    INSERT INTO user_progress (user_id, problem_id, notes, updated_at)
+    VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+    ON CONFLICT (user_id, problem_id)
+    DO UPDATE SET 
+      notes = EXCLUDED.notes,
+      updated_at = CURRENT_TIMESTAMP
+    RETURNING *
+  `, [userId, id, notes]);
 
   res.json(result.rows[0]);
 });
@@ -53,39 +112,80 @@ exports.updateNotes = asyncHandler(async (req, res) => {
 // Update problem progress
 exports.updateProgress = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { solved, notes, solution, solved_date } = req.body;
+  const { solved, notes, solution } = req.body;
+  const userId = req.user.userId;
   
   if (typeof solved !== 'boolean') {
     throw ApiError.badRequest('solved must be a boolean');
   }
 
+  // Verify problem exists
+  const problemCheck = await pool.query('SELECT id FROM problems WHERE id = $1', [id]);
+  if (problemCheck.rows.length === 0) {
+    throw ApiError.notFound('Problem not found');
+  }
+
   const solutionValue = solution && solution.trim() !== '' ? parseInt(solution) : null;
   
-  const result = await pool.query(
-    'UPDATE problems SET solved = $1, notes = $2, solution = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
-    [solved, notes, solutionValue, id]
-  );
+  // Upsert user_progress with solved status, notes, and solved_at timestamp
+  const result = await pool.query(`
+    INSERT INTO user_progress (user_id, problem_id, solved, solved_at, notes, updated_at)
+    VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+    ON CONFLICT (user_id, problem_id)
+    DO UPDATE SET 
+      solved = EXCLUDED.solved,
+      solved_at = EXCLUDED.solved_at,
+      notes = EXCLUDED.notes,
+      updated_at = CURRENT_TIMESTAMP
+    RETURNING *
+  `, [userId, id, solved, solved ? new Date() : null, notes]);
 
-  if (result.rows.length === 0) {
-    const error = new Error('Problem not found');
-    error.statusCode = 404;
-    throw error;
+  // Update solution in problems table (shared across users)
+  if (solutionValue !== null) {
+    await pool.query(
+      'UPDATE problems SET solution = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [solutionValue, id]
+    );
   }
 
+  // Handle review history
   if (solved) {
-    await pool.query('SELECT add_review_session($1, $2, $3, NULL)', [id, 'remembered', notes || 'Initial solve']);
+    await pool.query('SELECT add_review_session($1, $2, $3, $4, NULL)', [userId, id, 'remembered', notes || 'Initial solve']);
   } else {
-    await pool.query('DELETE FROM review_history WHERE problem_id = $1', [id]);
+    await pool.query('DELETE FROM review_history WHERE problem_id = $1 AND user_id = $2', [id, userId]);
   }
 
-  res.json(result.rows[0]);
+  // Return combined data
+  const problemData = await pool.query(`
+    SELECT 
+      p.*,
+      up.solved,
+      up.solved_at,
+      up.notes AS user_notes
+    FROM problems p
+    LEFT JOIN user_progress up ON p.id = up.problem_id AND up.user_id = $1
+    WHERE p.id = $2
+  `, [userId, id]);
+
+  res.json(problemData.rows[0]);
 });
 
 // Get solved problems
 exports.getSolvedProblems = asyncHandler(async (req, res) => {
-  const result = await pool.query(
-    'SELECT * FROM problems WHERE solved = true ORDER BY updated_at DESC'
-  );
+  const userId = req.user.userId;
+  
+  const result = await pool.query(`
+    SELECT 
+      p.*,
+      up.solved,
+      up.solved_at,
+      up.notes AS user_notes
+    FROM problems p
+    INNER JOIN user_progress up ON p.id = up.problem_id AND up.user_id = $1
+    WHERE up.solved = true 
+    ORDER BY up.updated_at DESC
+  `, [userId]);
+  
   res.json(result.rows);
 });
 
@@ -108,12 +208,13 @@ exports.getSimilarProblems = asyncHandler(async (req, res) => {
 // Get review history
 exports.getReviewHistory = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  const userId = req.user.userId;
   
   const result = await pool.query(
     `SELECT * FROM review_history 
-     WHERE problem_id = $1 
+     WHERE problem_id = $1 AND user_id = $2
      ORDER BY review_date DESC`,
-    [id]
+    [id, userId]
   );
   
   res.json(result.rows);

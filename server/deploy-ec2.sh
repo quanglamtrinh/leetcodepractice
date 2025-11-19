@@ -17,16 +17,16 @@ NC='\033[0m' # No Color
 APP_NAME="leetcode-backend"
 DOCKER_IMAGE="leetcode-backend:latest"
 
-# Check if .env.production exists
-if [ ! -f .env.production ]; then
-    echo -e "${RED}❌ Error: .env.production file not found${NC}"
-    echo "Please create .env.production file with required variables:"
-    echo "  DB_NAME, DB_USER, DB_PASSWORD, ALLOWED_ORIGINS"
+# Check if .env exists
+if [ ! -f .env ]; then
+    echo -e "${RED}❌ Error: .env file not found${NC}"
+    echo "Please create .env file with required variables:"
+    echo "  DB_NAME, DB_USER, DB_PASSWORD"
     exit 1
 fi
 
 # Load environment variables
-export $(cat .env.production | grep -v '^#' | xargs)
+export $(cat .env | grep -v '^#' | xargs)
 
 echo -e "${YELLOW}📦 Building Docker image...${NC}"
 docker build -t $DOCKER_IMAGE .

@@ -22,11 +22,12 @@ services:
     networks:
       - leetcode-network
 
-  # Application Server (Development)
+  # Application Server
   app:
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.dev
+      target: development
     container_name: leetcode-app
     environment:
       DB_HOST: postgres
@@ -42,11 +43,10 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      - ./server:/app
+      - .:/app
       - /app/node_modules
-      - ./server/logs:/app/logs
-      - ./server/data:/app/data
-      - ./server/backups:/app/backups
+      - /app/client/node_modules
+    command: npm run dev
     networks:
       - leetcode-network
     restart: unless-stopped

@@ -404,7 +404,7 @@ project2/docker-compose.yml  → volume: project2_postgres_data
 
 ```bash
 # ❌ NGUY HIỂM - Xóa volumes
-docker-compose down -v
+  docker-compose down -v
 
 # ✅ AN TOÀN - Giữ volumes
 docker-compose down

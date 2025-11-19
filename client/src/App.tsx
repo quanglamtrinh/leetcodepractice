@@ -10,6 +10,7 @@ import DueTodayFlashcards from './components/DueTodayFlashcards';
 import AddProblemForm from './components/AddProblemForm';
 import CalendarTab from './components/CalendarTab';
 import { calendarService } from './services/calendarService';
+import { API_BASE_URL } from './config';
 import './styles.css';
 import './styles/novel-editor.css';
 
@@ -31,8 +32,7 @@ const App: React.FC = () => {
   const [showAddProblemForm, setShowAddProblemForm] = useState(false);
 
   useEffect(() => {
-    const apiUrl = process.env.REACT_APP_API_URL || '';
-    fetch(`${apiUrl}/api/problems`)
+    fetch(`${API_BASE_URL}/api/problems`)
       .then(res => res.json())
       .then(setProblems);
   }, []);
@@ -40,7 +40,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (view === 'due-today') {
       setLoadingDueToday(true);
-      fetch('/api/due-today')
+      fetch(`${API_BASE_URL}/api/due-today`)
         .then(res => res.json())
         .then(data => setDueTodayProblems(data))
         .finally(() => setLoadingDueToday(false));
@@ -50,7 +50,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (view === 'solved') {
       setLoadingSolved(true);
-      fetch('/api/solved')
+      fetch(`${API_BASE_URL}/api/solved`)
         .then(res => res.json())
         .then(data => setSolvedProblems(data))
         .finally(() => setLoadingSolved(false));
@@ -178,7 +178,7 @@ const App: React.FC = () => {
 
   const handleAddProblemSuccess = () => {
     // Refresh the problems list
-    fetch('/api/problems')
+    fetch(`${API_BASE_URL}/api/problems`)
       .then(res => res.json())
       .then(setProblems)
       .catch(console.error);
@@ -196,7 +196,7 @@ const App: React.FC = () => {
     
     const newSolvedState = !currentProblem.solved;
     
-    await fetch(`/api/problems/${problemId}/progress`, {
+    await fetch(`${API_BASE_URL}/api/problems/${problemId}/progress`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ solved: newSolvedState })
@@ -212,10 +212,10 @@ const App: React.FC = () => {
     }
     
     // Refresh problems and solvedProblems
-    fetch('/api/problems')
+    fetch(`${API_BASE_URL}/api/problems`)
       .then(res => res.json())
       .then(setProblems);
-    fetch('/api/solved')
+    fetch(`${API_BASE_URL}/api/solved`)
       .then(res => res.json())
       .then(setSolvedProblems);
   };
