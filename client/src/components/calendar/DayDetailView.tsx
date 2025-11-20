@@ -514,7 +514,7 @@ const DayDetailView: React.FC<DayDetailViewProps> = ({
                   <span className={`section-toggle ${expandedSections.events ? 'expanded' : ''}`}>
                     ▶
                   </span>
-                  📅 Events ({dayDetails.events.filter(e => e.event_type === 'reminder').length})
+                  📅 Events ({dayDetails.events.length})
                 </h3>
                 <button 
                   className="add-button" 
@@ -529,41 +529,49 @@ const DayDetailView: React.FC<DayDetailViewProps> = ({
               </div>
               {expandedSections.events && (
                 <div className="section-content">
-                  {dayDetails.events.filter(e => e.event_type === 'reminder').length > 0 ? (
-                    <div className="events-list">
-                      {dayDetails.events
-                        .filter(e => e.event_type === 'reminder')
-                        .map((event) => (
-                          <div key={event.id} className="event-item">
-                            <div className="event-time">
-                              {event.start_time && (
-                                <span>
-                                  {event.start_time}
-                                  {event.end_time && ` - ${event.end_time}`}
-                                </span>
+                  {dayDetails.events.length > 0 ? (
+                    <div className="events-timeline">
+                      {dayDetails.events.map((event, index) => (
+                          <div key={event.id} className="timeline-item">
+                            <div className="timeline-marker">
+                              <div className="timeline-icon">
+                                <span>✓</span>
+                              </div>
+                              {index < dayDetails.events.length - 1 && (
+                                <div className="timeline-line"></div>
                               )}
                             </div>
-                            <div className="event-content">
-                              <div className="event-title">{event.title}</div>
+                            <div className={`event-card event-color-${index % 4}`}>
+                              <div className="event-header">
+                                <h4 className="event-title">{event.title}</h4>
+                                {event.start_time && (
+                                  <span className="event-time">
+                                    {event.start_time.substring(0, 5)}
+                                  </span>
+                                )}
+                              </div>
                               {event.description && (
-                                <div className="event-description">{event.description}</div>
+                                <p className="event-description">{event.description}</p>
                               )}
-                            </div>
-                            <div className="event-actions">
-                              <button 
-                                className="edit-button" 
-                                title="Edit Event"
-                                onClick={() => handleEditEvent(event.id)}
-                              >
-                                ✏️
-                              </button>
-                              <button 
-                                className="delete-button" 
-                                title="Delete Event"
-                                onClick={() => handleDeleteEvent(event.id)}
-                              >
-                                🗑️
-                              </button>
+                              <div className="event-footer">
+                                <span className="event-label">Event</span>
+                                <div className="event-actions">
+                                  <button 
+                                    className="action-btn edit-btn" 
+                                    title="Edit"
+                                    onClick={() => handleEditEvent(event.id)}
+                                  >
+                                    ✏️
+                                  </button>
+                                  <button 
+                                    className="action-btn delete-btn" 
+                                    title="Delete"
+                                    onClick={() => handleDeleteEvent(event.id)}
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         ))}

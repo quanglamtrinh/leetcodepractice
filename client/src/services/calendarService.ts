@@ -126,25 +126,26 @@ export class CalendarService {
 
     return this.getCachedData(cacheKey, async () => {
       try {
-        // Fetch events for the day
-        const eventsResponse = await apiRequest<CalendarEvent[]>(
-          `/api/calendar/day/${dateStr}`
-        );
+        // Fetch calendar data for the day (returns { date, notes, tasks, events })
+        const calendarData = await apiRequest<{
+          date: string;
+          notes: any[];
+          tasks: any[];
+          events: any[];
+        }>(`/api/calendar/day/${dateStr}`);
 
         // Fetch all solved problems and filter by date
         const allProblemsResponse = await apiRequest<Problem[]>('/api/solved');
         const problems = (allProblemsResponse || []).filter(problem => {
           if (!problem.solved_date) return false;
-          const solvedDate = new Date(problem.solved_date).toISOString().split('T')[0]; // Get just the date part
+          const solvedDate = new Date(problem.solved_date).toISOString().split('T')[0];
           return solvedDate === dateStr;
         });
 
-        const events = eventsResponse || [];
-
-        // Separate events by type
-        const tasks = events.filter(e => e.event_type === 'task') as Task[];
-        const notes = events.filter(e => e.event_type === 'note') as Note[];
-        const solvedProblemEvents = events.filter(e => e.event_type === 'solved_problem') as SolvedProblem[];
+        // Extract data from response
+        const events = calendarData?.events || [];
+        const tasks = calendarData?.tasks || [];
+        const notes = calendarData?.notes || [];
 
         // Fetch day notes
         const dayNotes = await this.getDayNotes(date);
@@ -155,7 +156,7 @@ export class CalendarService {
           solvedProblems: problems,
           tasks: tasks,
           notes: notes,
-          solvedProblemEvents: solvedProblemEvents,
+          solvedProblemEvents: [], // No longer using event_type
           dayNotes: dayNotes
         };
       } catch (error) {
@@ -226,20 +227,12 @@ export class CalendarService {
 
       // Map client-side field names to server-side field names
       const serverEventData: any = {
-        event_type: eventData.event_type,
         title: eventData.title,
         description: eventData.description,
         event_date: eventData.date, // Map 'date' to 'event_date'
-        event_time: eventData.start_time,
-        duration_minutes: eventData.end_time ? this.calculateDurationMinutes(eventData.start_time, eventData.end_time) : undefined,
-        priority: eventData.priority || 'medium',
-        problem_id: eventData.problem_id
+        start_time: eventData.start_time,
+        end_time: eventData.end_time
       };
-
-      // Add type-specific fields
-      if (eventData.event_type === 'note') {
-        serverEventData.note_content = eventData.description || eventData.title || 'Empty note';
-      }
 
       const response = await apiRequest<CalendarEvent>(
         '/api/calendar/events',
@@ -326,12 +319,41 @@ export class CalendarService {
   /**
    * Create a task
    */
-  async createTask(taskData: Omit<CreateEventRequest, 'event_type'>): Promise<Task> {
-    const eventData: CreateEventRequest = {
-      ...taskData,
-      event_type: 'task'
-    };
-    return this.createEvent(eventData) as Promise<Task>;
+  async createTask(taskData: {
+    title: string;
+    description?: string;
+    date: string;
+    priority?: string;
+  }): Promise<Task> {
+    try {
+      if (!taskData.title?.trim()) {
+        throw new ApiError('Task title is required', 400);
+      }
+      if (!taskData.date) {
+        throw new ApiError('Task date is required', 400);
+      }
+
+      const serverTaskData: any = {
+        title: taskData.title,
+        description: taskData.description,
+        task_date: taskData.date,
+        priority: taskData.priority || 'none'
+      };
+
+      const response = await apiRequest<Task>(
+        '/api/calendar/tasks',
+        {
+          method: 'POST',
+          body: JSON.stringify(serverTaskData)
+        }
+      );
+
+      this.clearCacheForDate(taskData.date);
+      return response;
+    } catch (error) {
+      console.error('Error creating task:', error);
+      throw error;
+    }
   }
 
   /**

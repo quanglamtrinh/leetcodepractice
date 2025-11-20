@@ -69,13 +69,25 @@ const EventForm: React.FC<EventFormProps> = ({
     }
 
     try {
-      await onSubmit({
+      const eventData: any = {
         title: formData.title.trim(),
-        description: formData.description.trim() || undefined,
-        date: formatDateToISO(date),
-        start_time: formData.start_time || undefined,
-        end_time: formData.end_time || undefined
-      });
+        date: formatDateToISO(date)
+      };
+      
+      // Only include optional fields if they have values
+      if (formData.description.trim()) {
+        eventData.description = formData.description.trim();
+      }
+      
+      if (formData.start_time) {
+        eventData.start_time = formData.start_time;
+      }
+      
+      if (formData.end_time) {
+        eventData.end_time = formData.end_time;
+      }
+      
+      await onSubmit(eventData);
     } catch (error) {
       console.error('Error submitting event:', error);
     }

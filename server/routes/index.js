@@ -89,7 +89,7 @@ router.get('/solved', authenticateToken, async (req, res) => {
         p.*,
         up.solved,
         up.solved_at,
-        up.notes AS user_notes
+        up.notes
       FROM problems p
       INNER JOIN user_progress up ON p.id = up.problem_id AND up.user_id = $1
       WHERE up.solved = true 

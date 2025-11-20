@@ -17,6 +17,8 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
   const [flipped, setFlipped] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [remainingProblems, setRemainingProblems] = useState(problems);
+  const [rememberedCount, setRememberedCount] = useState(0);
+  const totalProblems = problems.length;
 
   // Helper function to get difficulty class (matching script.js)
   const getDifficultyClass = (difficulty: string) => {
@@ -29,6 +31,7 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
     setCurrent(0);
     setFlipped(false);
     setCompleted(false);
+    setRememberedCount(0);
   }, [problems]);
 
   if (!remainingProblems || remainingProblems.length === 0) {
@@ -41,7 +44,7 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
   }
 
   const problem = remainingProblems[current];
-  const progress = Math.round(((current + 1) / remainingProblems.length) * 100);
+  const progress = totalProblems > 0 ? Math.round((rememberedCount / totalProblems) * 100) : 0;
 
   // Helper function to generate LeetCode URL from problem title
   const generateLeetCodeUrl = (title: string) => {
@@ -56,11 +59,19 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
     return `https://leetcode.com/problems/${urlTitle}/`;
   };
 
+  // Safety check to prevent undefined access
+  if (!problem) {
+    return (
+      <div className="flashcard-study-complete">
+        <p>No problem data available</p>
+      </div>
+    );
+  }
+
   // Get LeetCode URL (use existing link or generate one)
   const leetcodeUrl = problem.leetcode_link || generateLeetCodeUrl(problem.title);
 
-  // Safety check to prevent undefined access
-  if (!problem) {
+  if (false) {
     return (
       <div className="flashcard-study-complete">
         <h2>Loading...</h2>
@@ -96,6 +107,9 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
       
       if (response.ok) {
         console.log('✅ Review saved successfully');
+        // Increment remembered count
+        setRememberedCount(prev => prev + 1);
+        
         // Remove the current problem from the list
         const newProblems = remainingProblems.filter((_, index) => index !== current);
         setRemainingProblems(newProblems);
@@ -190,10 +204,10 @@ const DueTodayFlashcards: React.FC<DueTodayFlashcardsProps> = ({ problems }) => 
       <div className="flashcard-container">
         <div className="flashcard-study-info">
            <div className="flashcard-card-counter">
-             <span>Card</span>
-             <span id="currentCard">{current + 1}</span>
+             <span>Remembered</span>
+             <span id="rememberedCount">{rememberedCount}</span>
              <span>of</span>
-             <span id="totalCards">{remainingProblems.length}</span>
+             <span id="totalCards">{totalProblems}</span>
            </div>
           <div className="flashcard-progress-container">
             <div className="flashcard-progress-bar">

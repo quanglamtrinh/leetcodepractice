@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const reviewController = require('../controllers/reviewController');
+const { authenticateToken } = require('../middleware/auth');
 
-router.get('/due-today', reviewController.getDueProblems);
-router.get('/solved', reviewController.getSolvedProblems);
-router.get('/:problemId/history', reviewController.getReviewHistory);
-router.post('/:problemId/session', reviewController.addReviewSession);
+// All review routes require authentication
+router.get('/due-today', authenticateToken, reviewController.getDueProblems);
+router.get('/solved', authenticateToken, reviewController.getSolvedProblems);
+router.get('/:problemId/history', authenticateToken, reviewController.getReviewHistory);
+router.post('/:problemId/session', authenticateToken, reviewController.addReviewSession);
 
 module.exports = router;

@@ -115,6 +115,14 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
     isTypingSlashCommandRef.current = false;
   }, [selectedDate]);
 
+  // Update editor when content changes (after loading)
+  useEffect(() => {
+    if (content && editorRef.current && !isLoading) {
+      console.log('🔄 Content state changed, updating editor');
+      editorRef.current.commands.setContent(content);
+    }
+  }, [content, isLoading]);
+
   // Load content when date changes
   useEffect(() => {
     const loadContent = async () => {
@@ -151,6 +159,8 @@ const DayNotesEditor: React.FC<DayNotesEditorProps> = ({
           if (editorRef.current) {
             console.log(`🔄 Updating editor content for ${dateStr}`);
             editorRef.current.commands.setContent(novelContent);
+          } else {
+            console.log(`⏳ Editor not ready yet, content will be set via initialContent`);
           }
         }
 

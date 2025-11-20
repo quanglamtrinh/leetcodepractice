@@ -1,0 +1,100 @@
+  }, [problem.id, enableOptimizations]);
+
+  // Enhanced save notes with retry logic and comprehensive error handling
+  const saveNotes = useCallback(async (content: JSONContent, isRetry: boolean = false) => {
+    logDebug('Save notes called', { 
+      problemId: problem.id, 
+      contentType: content.type, 
+      isRetry,
+      retryCount: saveState.retryCount 
+    });
+    
+    // Update save state
+    setSaveState(prev => ({ 
+      ...prev, 
+      isSaving: true, 
+      pendingContent: content,
+      retryCount: isRetry ? prev.retryCount + 1 : 0
+    }));
+    
+    setStatus(isRetry ? `Retrying save (${saveState.retryCount + 1}/${retryConfig.maxRetries})...` : 'Saving...');
+    setError(null);
+    
+    try {
+      // Validate content before saving
+      if (!content || content.type !== 'doc') {
+        throw new Error('Invalid content format - content must be a valid document');
+      }
+
+      const contentString = JSON.stringify(content);
+      
+      // Check content size
+      if (contentString.length > 1000000) { // 1MB limit
+        throw new Error('Notes are too large (over 1MB). Please reduce content size.');
+      }
+      
+      logDebug('Sending save request', { 
+        problemId: problem.id, 
+        contentLength: contentString.length 
+      });
+
+      // Use retry logic for the save operation
+      const saveOperation = async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+        try {
+          const response = await fetch(`/api/problems/${problem.id}/notes`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notes: contentString }),
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = `Save failed (HTTP ${response.status})`;
+            
+            if (response.status === 404) {
+              errorMessage = 'Problem not found - it may have been deleted';
+            } else if (response.status === 413) {
+              errorMessage = 'Notes are too large for the server to process';
+            } else if (response.status === 422) {
+              errorMessage = 'Invalid notes format - please try refreshing the page';
+            } else if (response.status === 429) {
+              errorMessage = 'Too many save requests - please wait a moment';
+            } else if (response.status >= 500) {
+              errorMessage = 'Server error - your notes will be retried automatically';
+            } else if (errorText) {
+              try {
+                const errorData = JSON.parse(errorText);
+                errorMessage = errorData.message || errorMessage;
+              } catch {
+                errorMessage = `${errorMessage}: ${errorText.substring(0, 100)}`;
+              }
+            }
+            
+            const error = new Error(errorMessage);
+            (error as any).status = response.status;
+            throw error;
+          }
+
+          return response;
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      };
+
+      // Execute save with retry logic
+      await retryWithBackoff(saveOperation, retryConfig, 'Save notes');
+
+      // Success
+      setSaveState(prev => ({ 
+        ...prev, 
+        isSaving: false, 
+        lastSaveTime: Date.now(),
+        retryCount: 0,
+        pendingContent: null
+      }));

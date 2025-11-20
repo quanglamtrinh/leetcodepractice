@@ -9,6 +9,9 @@ import SolvedDetailView from './components/SolvedDetailView';
 import DueTodayFlashcards from './components/DueTodayFlashcards';
 import AddProblemForm from './components/AddProblemForm';
 import CalendarTab from './components/CalendarTab';
+import LoginPage from './components/LoginPage';
+import RegisterPage from './components/RegisterPage';
+import { useAuth } from './context/AuthContext';
 import { calendarService } from './services/calendarService';
 import { API_BASE_URL } from './config';
 import './styles.css';
@@ -18,6 +21,8 @@ const MENU_KEYS = ['practice', 'solved', 'due-today', 'calendar', 'pomodoro'] as
 type MenuKey = typeof MENU_KEYS[number];
 
 const App: React.FC = () => {
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const [showRegister, setShowRegister] = useState(false);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
   const [view, setView] = useState<MenuKey>('practice');
@@ -32,15 +37,26 @@ const App: React.FC = () => {
   const [showAddProblemForm, setShowAddProblemForm] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/problems`)
-      .then(res => res.json())
-      .then(setProblems);
-  }, []);
+    if (isAuthenticated) {
+      fetch(`${API_BASE_URL}/api/problems`)
+        .then(res => {
+          if (!res.ok) {
+            throw new Error('Failed to fetch problems');
+          }
+          return res.json();
+        })
+        .then(setProblems)
+        .catch(err => {
+          console.error('Error fetching problems:', err);
+          setProblems([]);
+        });
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (view === 'due-today') {
       setLoadingDueToday(true);
-      fetch(`${API_BASE_URL}/api/due-today`)
+      fetch(`${API_BASE_URL}/api/reviews/due-today`)
         .then(res => res.json())
         .then(data => setDueTodayProblems(data))
         .finally(() => setLoadingDueToday(false));
@@ -56,6 +72,20 @@ const App: React.FC = () => {
         .finally(() => setLoadingSolved(false));
     }
   }, [view]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return <div>Loading...</div>;
+  }
+
+  // Show login/register page if not authenticated
+  if (!isAuthenticated) {
+    return showRegister ? (
+      <RegisterPage onNavigateToLogin={() => setShowRegister(false)} />
+    ) : (
+      <LoginPage onNavigateToRegister={() => setShowRegister(true)} />
+    );
+  }
 
   if (problems.length === 0) {
     return <div>Loading problems...</div>;

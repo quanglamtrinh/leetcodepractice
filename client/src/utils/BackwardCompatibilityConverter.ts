@@ -188,6 +188,9 @@ export class BackwardCompatibilityConverter {
       return this.createEmptyDocument();
     }
 
+    // Replace literal \n with actual line breaks first
+    text = text.replace(/\\n/g, '\n');
+
     // Split text by double newlines to create paragraphs
     const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim());
     
@@ -275,10 +278,27 @@ export class BackwardCompatibilityConverter {
   }
 
   private static createCodeBlock(text: string, language?: string): JSONContent {
+    // Replace literal \n with actual line breaks
+    // Also handle double-escaped \\n and other escape sequences
+    let processedText = text ? String(text) : '';
+    
+    // Debug log to see what we're receiving
+    if (processedText.includes('\\n') || processedText.includes('\\\\n')) {
+      console.log('🔍 Code block before processing:', processedText.substring(0, 100));
+    }
+    
+    // Handle various escape levels
+    processedText = processedText.replace(/\\\\n/g, '\n'); // Handle \\n
+    processedText = processedText.replace(/\\n/g, '\n');   // Handle \n
+    
+    if (text && text !== processedText) {
+      console.log('✅ Code block after processing:', processedText.substring(0, 100));
+    }
+    
     return {
       type: 'codeBlock',
       attrs: language ? { language } : {},
-      content: text ? [{ type: 'text', text: String(text) }] : []
+      content: processedText ? [{ type: 'text', text: processedText }] : []
     };
   }
 

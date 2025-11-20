@@ -1,7 +1,6 @@
 /* Day Detail View Styles */
 .day-detail-view {
   width: 100%;
-  height: 100vh;
   display: flex;
   flex-direction: column;
   background: #f8fafc;
@@ -933,7 +932,6 @@
 reen Day Detail View Styles (like ProblemDetailView) */
 .day-detail-view-fullscreen {
   width: 100%;
-  height: 100vh;
   display: flex;
   flex-direction: column;
   background: #f8fafc;
@@ -942,7 +940,6 @@ reen Day Detail View Styles (like ProblemDetailView) */
 
 .calendar-day-detail-fullscreen {
   width: 100%;
-  height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -1131,4 +1128,349 @@ body.day-notes-fullscreen-active {
   align-items: center;
   justify-content: center;
   z-index: 100;
+}
+
+
+/* Timeline Styles for Events */
+.events-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 100px;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 16px;
+  position: relative;
+}
+
+.timeline-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.timeline-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #f59e0b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 18px;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  z-index: 2;
+}
+
+.timeline-line {
+  width: 2px;
+  flex: 1;
+  background: #e5e7eb;
+  margin-top: 8px;
+  min-height: 40px;
+}
+
+.event-card {
+  flex: 1;
+  padding: 16px 20px;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+  margin-bottom: 8px;
+}
+
+.event-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* Event Card Colors */
+.event-color-0 {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border-left: 4px solid #10b981;
+}
+
+.event-color-1 {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border-left: 4px solid #6b7280;
+}
+
+.event-color-2 {
+  background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+  border-left: 4px solid #f59e0b;
+}
+
+.event-color-3 {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-left: 4px solid #f59e0b;
+}
+
+.event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.event-card .event-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  flex: 1;
+}
+
+.event-card .event-time {
+  font-size: 18px;
+  font-weight: 700;
+  color: #374151;
+  margin-left: 12px;
+  white-space: nowrap;
+}
+
+.event-card .event-description {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+.event-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.event-label {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.6);
+  color: #374151;
+}
+
+.event-color-0 .event-label {
+  color: #059669;
+}
+
+.event-color-1 .event-label {
+  color: #4b5563;
+}
+
+.event-color-2 .event-label {
+  color: #d97706;
+}
+
+.event-color-3 .event-label {
+  color: #d97706;
+}
+
+.event-card .event-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.event-card .action-btn {
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.event-card .action-btn:hover {
+  background: white;
+  transform: scale(1.1);
+}
+
+.event-card .edit-btn:hover {
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.event-card .delete-btn:hover {
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+
+/* Section content - no scroll, let page grow naturally */
+.section-content {
+  overflow-x: hidden;
+}
+
+
+
+/* Tasks List Styling */
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  border-left: 4px solid #3b82f6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s;
+}
+
+.task-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.task-item.completed {
+  opacity: 0.7;
+  border-left-color: #10b981;
+  background: #f0fdf4;
+}
+
+.task-item.overdue {
+  border-left-color: #ef4444;
+  background: #fef2f2;
+}
+
+.task-checkbox {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.task-checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #10b981;
+}
+
+.task-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 6px;
+  word-wrap: break-word;
+}
+
+.task-item.completed .task-title {
+  text-decoration: line-through;
+  color: #6b7280;
+}
+
+.task-description {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.task-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.priority-badge,
+.status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.priority-badge.none {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.priority-badge.low {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.priority-badge.medium {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.priority-badge.high {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.status-badge.pending {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.status-badge.completed {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.status-badge.overdue {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.overdue-indicator {
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.task-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.task-actions .edit-button,
+.task-actions .delete-button {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.task-actions .edit-button:hover {
+  background: #dbeafe;
+  transform: scale(1.1);
+}
+
+.task-actions .delete-button:hover {
+  background: #fee2e2;
+  transform: scale(1.1);
 }

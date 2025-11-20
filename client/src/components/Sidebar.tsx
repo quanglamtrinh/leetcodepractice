@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../context/AuthContext';
 
 interface SidebarProps {
   easy: number;
@@ -10,7 +11,10 @@ interface SidebarProps {
   onAddProblem: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ easy, medium, hard, dueToday, activeMenu, onMenuSelect, onAddProblem }) => (
+const Sidebar: React.FC<SidebarProps> = ({ easy, medium, hard, dueToday, activeMenu, onMenuSelect, onAddProblem }) => {
+  const { user, logout } = useAuth();
+
+  return (
   <div className="sidebar" id="sidebar">
     <div className="menu-header" id="menuToggle">
       <span>Menu</span>
@@ -57,8 +61,23 @@ const Sidebar: React.FC<SidebarProps> = ({ easy, medium, hard, dueToday, activeM
           <span className="stat-value">{hard}</span>
         </div>
       </div>
+      {user && (
+        <div className="user-section">
+          <div className="user-info">
+            <div className="user-avatar">{user.username.charAt(0).toUpperCase()}</div>
+            <div className="user-details">
+              <div className="user-name">{user.username}</div>
+              <div className="user-email">{user.email}</div>
+            </div>
+          </div>
+          <button className="logout-btn" onClick={logout}>
+            Logout
+          </button>
+        </div>
+      )}
     </div>
   </div>
-);
+  );
+};
 
 export default Sidebar; 

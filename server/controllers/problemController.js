@@ -18,10 +18,11 @@ exports.getAllProblems = asyncHandler(async (req, res) => {
   
   const result = await pool.query(`
     SELECT 
-      p.*,
+      p.id, p.title, p.difficulty, p.concept, p.leetcode_link, p.popularity, p.acceptance_rate,
+      p.similar_problems, p.solution, p.created_at, p.updated_at,
       up.solved,
       up.solved_at,
-      up.notes AS user_notes
+      up.notes
     FROM problems p
     LEFT JOIN user_progress up ON p.id = up.problem_id AND up.user_id = $1
     ORDER BY ${orderBy}
@@ -47,10 +48,11 @@ exports.getProblemsByConcept = asyncHandler(async (req, res) => {
   
   const result = await pool.query(`
     SELECT 
-      p.*,
+      p.id, p.title, p.difficulty, p.concept, p.leetcode_link, p.popularity, p.acceptance_rate,
+      p.similar_problems, p.solution, p.created_at, p.updated_at,
       up.solved,
       up.solved_at,
-      up.notes AS user_notes
+      up.notes
     FROM problems p
     LEFT JOIN user_progress up ON p.id = up.problem_id AND up.user_id = $1
     WHERE p.concept = $2
@@ -67,10 +69,11 @@ exports.getProblemById = asyncHandler(async (req, res) => {
   
   const result = await pool.query(`
     SELECT 
-      p.*,
+      p.id, p.title, p.difficulty, p.concept, p.leetcode_link, p.popularity, p.acceptance_rate,
+      p.similar_problems, p.solution, p.created_at, p.updated_at,
       up.solved,
       up.solved_at,
-      up.notes AS user_notes
+      up.notes
     FROM problems p
     LEFT JOIN user_progress up ON p.id = up.problem_id AND up.user_id = $1
     WHERE p.id = $2
@@ -150,7 +153,7 @@ exports.updateProgress = asyncHandler(async (req, res) => {
 
   // Handle review history
   if (solved) {
-    await pool.query('SELECT add_review_session($1, $2, $3, $4, NULL)', [userId, id, 'remembered', notes || 'Initial solve']);
+    await pool.query('SELECT add_review_session($1, $2, $3, $4, $5)', [id, 'remembered', notes || 'Initial solve', null, userId]);
   } else {
     await pool.query('DELETE FROM review_history WHERE problem_id = $1 AND user_id = $2', [id, userId]);
   }
@@ -158,10 +161,11 @@ exports.updateProgress = asyncHandler(async (req, res) => {
   // Return combined data
   const problemData = await pool.query(`
     SELECT 
-      p.*,
+      p.id, p.title, p.difficulty, p.concept, p.leetcode_link, p.popularity, p.acceptance_rate,
+      p.similar_problems, p.solution, p.created_at, p.updated_at,
       up.solved,
       up.solved_at,
-      up.notes AS user_notes
+      up.notes
     FROM problems p
     LEFT JOIN user_progress up ON p.id = up.problem_id AND up.user_id = $1
     WHERE p.id = $2
@@ -176,10 +180,11 @@ exports.getSolvedProblems = asyncHandler(async (req, res) => {
   
   const result = await pool.query(`
     SELECT 
-      p.*,
+      p.id, p.title, p.difficulty, p.concept, p.leetcode_link, p.popularity, p.acceptance_rate,
+      p.similar_problems, p.solution, p.created_at, p.updated_at,
       up.solved,
       up.solved_at,
-      up.notes AS user_notes
+      up.notes
     FROM problems p
     INNER JOIN user_progress up ON p.id = up.problem_id AND up.user_id = $1
     WHERE up.solved = true 
