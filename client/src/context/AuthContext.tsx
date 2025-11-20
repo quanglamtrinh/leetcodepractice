@@ -124,9 +124,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const data = await response.json();
       
-      // Registration successful - user can now login
-      // Note: Based on the design, registration returns success message, not token
-      // User needs to login after registration
+      // If backend returns token, auto-login
+      if (data.token && data.user) {
+        localStorage.setItem(TOKEN_KEY, data.token);
+        setUser(data.user);
+        setIsAuthenticated(true);
+        console.log('Auto-login after registration successful');
+      }
     } catch (error) {
       console.error('Registration error:', error);
       throw error;

@@ -20,9 +20,17 @@ const register = async (req, res) => {
     // Register user using auth service
     const result = await authService.registerUser(email, username, password);
 
+    // Generate token for auto-login
+    const token = authService.generateToken(result.userId, result.email);
+
     res.status(201).json({
       message: 'User registered successfully',
-      userId: result.userId
+      token: token,
+      user: {
+        id: result.userId,
+        email: result.email,
+        username: result.username
+      }
     });
   } catch (error) {
     // Handle specific errors

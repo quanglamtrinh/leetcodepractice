@@ -35,7 +35,8 @@ window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<R
     if (token && !headers.has('Authorization')) {
       headers.set('Authorization', `Bearer ${token}`);
       console.log(`🔐 Added auth token to request: ${url}`);
-    } else if (!token) {
+    } else if (!token && !url.includes('/auth/')) {
+      // Only warn if not an auth endpoint (register/login don't need tokens)
       console.log(`⚠️ No token found for request: ${url}`);
     }
     
